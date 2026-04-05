@@ -136,6 +136,86 @@ class Relationship:
 
 
 # ============================================================
+# ITEM (weapons, armor, artifacts — from junk to mythic)
+# ============================================================
+
+@dataclass
+class Item:
+    """
+    Any item in the game world. Tier determines power level.
+    Tier 0 = improvised junk. Tier 4 = mythic god-forged artifact.
+    Notable items have names, history, and rumors — they're discoverable
+    through tavern gossip, scholar knowledge, and dungeon exploration.
+    """
+    id: str
+    name: str
+    type: str                   # weapon, armor, consumable, key, misc
+    subtype: str = ""           # long_sword, plate, healing_potion, etc.
+    tier: int = 1               # 0=improvised, 1=common, 2=quality, 3=legendary, 4=mythic
+    description: str = ""       # what it looks like
+    # --- Combat stats ---
+    base_multiplier: float = 1.0    # weapon damage multiplier (from WEAPONS table for tier 1)
+    tier_multiplier: float = 1.0    # stacks with base: effective = base * tier_mult
+    defense: int = 0                # armor defense value
+    armor_overrides: dict = field(default_factory=dict)  # override weapon-armor matrix entries
+    special_effect: str = ""        # "bleeds target — toughness -5", "ignores chain armor", etc.
+    stat_bonuses: dict = field(default_factory=dict)     # {"strength": +10, "courage": +5}
+    # --- Lore (empty for common items, rich for notable ones) ---
+    history: str = ""           # how it was made, who owned it, what happened to them
+    location: str = ""          # where it currently is (location node ID, or "" if carried)
+    known_by: list = field(default_factory=list)     # NPC ids who know about this item
+    rumor_text: str = ""        # what people whisper in taverns
+    guarded_by: str = ""        # what stands between you and the item
+    # --- State ---
+    carried_by: str = ""        # player or NPC id, or "" if placed in world
+    discovered: bool = False    # has the player found/seen this item?
+    value: int = 0              # price in coins (0 = priceless / not for sale)
+
+    @property
+    def effective_multiplier(self) -> float:
+        """Total weapon power: base weapon type × tier scaling."""
+        return self.base_multiplier * self.tier_multiplier
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id, "name": self.name, "type": self.type,
+            "subtype": self.subtype, "tier": self.tier,
+            "description": self.description,
+            "base_multiplier": self.base_multiplier,
+            "tier_multiplier": self.tier_multiplier,
+            "defense": self.defense,
+            "armor_overrides": self.armor_overrides,
+            "special_effect": self.special_effect,
+            "stat_bonuses": self.stat_bonuses,
+            "history": self.history, "location": self.location,
+            "known_by": self.known_by, "rumor_text": self.rumor_text,
+            "guarded_by": self.guarded_by,
+            "carried_by": self.carried_by, "discovered": self.discovered,
+            "value": self.value,
+        }
+
+# Tier multipliers — how much stronger than common (tier 1) gear
+ITEM_TIER_MULTIPLIERS = {
+    0: 0.3,     # improvised — chair leg, rock, broken bottle
+    1: 1.0,     # common — iron sword, leather armor, standard gear
+    2: 1.8,     # quality — steel, masterwork, minor enchantment
+    3: 4.0,     # legendary — named weapons, ancient craft, powerful magic
+    4: 15.0,    # mythic — god-forged, world artifacts, one-of-a-kind
+}
+
+# Power tier for entities (NPCs, creatures, beings)
+# Used as a multiplier on combat power rating
+ENTITY_TIER_MULTIPLIERS = {
+    0: 0.5,     # animals — rats, dogs, wolves
+    1: 1.0,     # humans — the default, all our math assumes this
+    2: 2.5,     # exceptional — legendary warrior, minor magic user, large beast
+    3: 6.0,     # superhuman — master mage, giant, troll, wyvern
+    4: 25.0,    # mythic — dragon, demigod, ancient being
+    5: 100.0,   # divine — god, world-ending force, unkillable without special means
+}
+
+
+# ============================================================
 # INJURY
 # ============================================================
 
@@ -173,6 +253,7 @@ class NPC:
     faction: str = "none"
     faction_loyalty: int = 50
     temperament: str = "calm"     # volatile, calm, melancholy, cheerful, cold
+    power_tier: int = 1           # 0=animal, 1=human, 2=exceptional, 3=superhuman, 4=mythic, 5=divine
     location: str = ""            # node ID in spatial tree
     system_prompt: str = ""       # written by Character Author (empty = not yet authored)
     backstory: str = ""           # richness scales with depth/fate
@@ -325,6 +406,12 @@ class Location:
     coordinates: tuple = (0, 0)
     terrain: str = ""
     mood: str = ""
+    # --- Dungeon/exploration fields (empty for normal locations) ---
+    is_dungeon: bool = False
+    locked: bool = False          # needs a key, high agility, or a puzzle to enter
+    lock_difficulty: int = 0      # 0-100, agility check to pick / strength to force
+    trap: dict = field(default_factory=dict)   # {"type": "pit", "perception_to_spot": 60, "damage": 30}
+    notable_items: list = field(default_factory=list)  # item IDs placed here by world builder
 
     def to_dict(self) -> dict:
         return {
@@ -333,7 +420,9 @@ class Location:
             "children_ids": self.children_ids, "danger_rating": self.danger_rating,
             "economy": self.economy, "features": self.features,
             "coordinates": list(self.coordinates), "terrain": self.terrain,
-            "mood": self.mood,
+            "mood": self.mood, "is_dungeon": self.is_dungeon,
+            "locked": self.locked, "lock_difficulty": self.lock_difficulty,
+            "trap": self.trap, "notable_items": self.notable_items,
         }
 
 
@@ -374,6 +463,8 @@ class World:
     roads: list = field(default_factory=list)        # list of Road
     # Characters
     npcs: dict = field(default_factory=dict)         # id → NPC
+    # Items and artifacts
+    items: dict = field(default_factory=dict)         # id → Item
     # Factions, history, lore
     factions: dict = field(default_factory=dict)
     history: dict = field(default_factory=dict)
