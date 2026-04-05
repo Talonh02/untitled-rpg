@@ -118,9 +118,14 @@ def _get_armor_defense(armor_name):
 def _calculate_cpr(combatant):
     """
     Calculate a combatant's raw Combat Power Rating.
-    CPR = strength*0.25 + agility*0.25 + toughness*0.20 +
-          courage*0.10 + perception*0.10 + willpower*0.10
+    CPR = (strength*0.25 + agility*0.25 + toughness*0.20 +
+           courage*0.10 + perception*0.10 + willpower*0.10) * power_tier_multiplier
+
+    Power tier makes non-human entities dramatically stronger:
+    human=1x, exceptional=2.5x, superhuman=6x, dragon=25x, divine=100x
     """
+    from app.data import ENTITY_TIER_MULTIPLIERS
+
     # Get effective stats (with injury penalties applied)
     if hasattr(combatant, "get_effective_stats"):
         stats = combatant.get_effective_stats()
@@ -129,7 +134,13 @@ def _calculate_cpr(combatant):
     else:
         return 42.0  # fallback for broken data
 
-    return stats.combat_power()
+    base_cpr = stats.combat_power()
+
+    # Apply entity power tier (humans are 1x, dragons are 25x, etc.)
+    power_tier = getattr(combatant, "power_tier", 1)
+    tier_mult = ENTITY_TIER_MULTIPLIERS.get(power_tier, 1.0)
+
+    return base_cpr * tier_mult
 
 
 def _get_combatant_weapon(combatant):

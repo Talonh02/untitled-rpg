@@ -194,7 +194,7 @@ Return ONLY valid JSON (no markdown, no explanation):
     try:
         from app.ai.models import call_model
         import json
-        result = call_model("character_author", prompt)
+        result = call_model("character_author", "You create RPG characters from real-world descriptions. Return valid JSON.", prompt)
         if result:
             # Clean up the response — strip markdown fences if present
             cleaned = result.strip()

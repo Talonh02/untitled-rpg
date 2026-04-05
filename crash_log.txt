@@ -1,0 +1,11 @@
+
+======================================================================
+[2026-04-05 13:55:57] CAUGHT EXCEPTION in test_function
+  Args: testing=true
+  Error: ValueError: test error
+  Fallback: test fallback
+  Traceback:
+Traceback (most recent call last):
+  File "<string>", line 25, in <module>
+ValueError: test error
+

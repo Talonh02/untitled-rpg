@@ -317,6 +317,8 @@ class NPC:
             "is_companion": self.is_companion, "is_alive": self.is_alive,
             "met_player": self.met_player, "model_tier": self.model_tier,
             "depth_score": self.depth_score,
+            "power_tier": self.power_tier,
+            "schedule_template": self.schedule_template,
         }
 
 
@@ -388,6 +390,7 @@ class Player:
             "injuries": [i.to_dict() if isinstance(i, Injury) else i for i in self.injuries],
             "reputation": self.reputation,
             "days_alive": self.days_alive, "kills": self.kills,
+            "nonsense_count": self.nonsense_count,
         }
 
 
@@ -611,6 +614,8 @@ WEAPONS = {
     "war_axe":      {"multiplier": 1.2, "speed": "slow", "display": "war axe"},
     "bow":          {"multiplier": 1.1, "speed": "ranged", "display": "bow"},
     "crossbow":     {"multiplier": 1.25, "speed": "slow", "display": "crossbow"},
+    "hammer":       {"multiplier": 1.0, "speed": "medium", "display": "hammer"},
+    "staff":        {"multiplier": 0.7, "speed": "medium", "display": "wooden staff"},
 }
 
 ARMOR = {
@@ -633,6 +638,8 @@ WEAPON_ARMOR_MATRIX = {
     "war_axe":       {"none": 1.0, "leather": 1.0, "chain": 0.85, "plate": 0.7},
     "bow":           {"none": 1.0, "leather": 0.85, "chain": 0.5, "plate": 0.3},
     "crossbow":      {"none": 1.0, "leather": 0.95, "chain": 0.75, "plate": 0.55},
+    "hammer":        {"none": 0.9, "leather": 0.9, "chain": 0.95, "plate": 0.8},
+    "staff":         {"none": 0.8, "leather": 0.7, "chain": 0.4, "plate": 0.25},
 }
 
 # Prices in coins

@@ -4,6 +4,8 @@ Every turn: get input → interpret → route to engine → narrate → display.
 """
 import random
 
+from app.crash_log import log_crash, clear_log
+
 from app.data import (
     GameState, Action, CombatOutcome, NPC, Relationship,
     WEAPONS, ARMOR, WEAPON_ARMOR_MATRIX
@@ -54,6 +56,8 @@ class GameLoop:
         """
         Main game loop. Runs until the game is over.
         """
+        # Clear crash log at game start so we only see this session's errors
+        clear_log()
         # Show the opening scene
         self._show_initial_scene()
 
@@ -64,7 +68,8 @@ class GameLoop:
                 self.ui.show_system("\nGame paused. Type 'quit' to exit or press Enter to continue.")
                 continue
             except Exception as e:
-                # Never crash — show the error and keep going
+                # Never crash — log the error and keep going
+                log_crash("play_turn", f"turn={self.state.turn_number}", e, "skipped turn")
                 self.ui.show_system(f"[Something went wrong: {e}. The world continues.]")
                 continue
 
@@ -142,7 +147,8 @@ class GameLoop:
             if action:
                 action.raw_input = raw_input
                 return action
-        except Exception:
+        except Exception as e:
+            log_crash("interpret", "turn={}".format(getattr(getattr(self, "state", None), "turn_number", "?")), e, "used fallback")
             pass
 
         # Fallback: simple keyword-based parsing
@@ -266,7 +272,8 @@ class GameLoop:
             # Fix #1: move_local expects (player, target_id, world)
             result = move_local(self.state.player, action.target or action.intent, self.state.world)
             return {"type": "movement", "result": result}
-        except Exception:
+        except Exception as e:
+            log_crash("move_local", "turn={}".format(getattr(getattr(self, "state", None), "turn_number", "?")), e, "used fallback")
             # Fallback: try to find a matching location and move there
             return self._fallback_movement(action)
 
@@ -345,7 +352,8 @@ class GameLoop:
             from app.engine.social import update_trust
             # Fix #2: update_trust expects (npc, interaction_type_string, details_dict)
             update_trust(npc, "kind_words")
-        except Exception:
+        except Exception as e:
+            log_crash("unknown", "turn={}".format(getattr(getattr(self, "state", None), "turn_number", "?")), e, "used fallback")
             # Small default trust bump for friendly interaction
             if npc.relationship:
                 npc.relationship.trust = min(100, npc.relationship.trust + 1)
@@ -372,7 +380,8 @@ class GameLoop:
             # Apply results to game state
             self._apply_combat_outcome(outcome, npc)
             return {"type": "combat", "outcome": outcome, "enemy_name": npc.name}
-        except Exception:
+        except Exception as e:
+            log_crash("resolve_combat", "turn={}".format(getattr(getattr(self, "state", None), "turn_number", "?")), e, "used fallback")
             # Fallback: simple combat resolution
             return self._fallback_combat(npc)
 
@@ -455,7 +464,8 @@ class GameLoop:
                 scene_details.append({"description": n.brief_description(), "min_perception": 10})
             result = observe_scene(perception, scene_details)
             return {"type": "observation", "result": result}
-        except Exception:
+        except Exception as e:
+            log_crash("observe_scene", "turn={}".format(getattr(getattr(self, "state", None), "turn_number", "?")), e, "used fallback")
             # Fallback: describe the current location and NPCs
             loc = self.state.world.locations.get(self.state.player.location)
             npcs_here = self.state.world.npcs_at_location(self.state.player.location)
@@ -479,7 +489,8 @@ class GameLoop:
             from app.engine.economy import calculate_price
             # Basic trade handling — the engine figures out prices
             return {"type": "trade", "description": action.intent}
-        except Exception:
+        except Exception as e:
+            log_crash("unknown", "turn={}".format(getattr(getattr(self, "state", None), "turn_number", "?")), e, "used fallback")
             return {"type": "trade",
                     "description": "Trading isn't fully set up yet, but you browse the wares."}
 
@@ -493,7 +504,8 @@ class GameLoop:
             npcs_here = self.state.world.npcs_at_location(self.state.player.location)
             result = eavesdrop(perception, npcs_here)
             return {"type": "stealth", "result": result}
-        except Exception:
+        except Exception as e:
+            log_crash("eavesdrop", "turn={}".format(getattr(getattr(self, "state", None), "turn_number", "?")), e, "used fallback")
             # Simple stealth check based on agility
             agility = self.state.player.stats.agility
             roll = random.randint(1, 100)
@@ -597,7 +609,8 @@ class GameLoop:
             narration = narrate(scene_context, action, engine_result)
             if narration:
                 return narration
-        except Exception:
+        except Exception as e:
+            log_crash("narrate", "turn={}".format(getattr(getattr(self, "state", None), "turn_number", "?")), e, "used fallback")
             pass
 
         # Fallback: use the description from the engine result
@@ -613,7 +626,8 @@ class GameLoop:
             participants_info = f"Player vs {enemy_name}. Scene: {scene_context}"
             if outcome:
                 return narrate_combat(outcome, participants_info)
-        except Exception:
+        except Exception as e:
+            log_crash("get", "turn={}".format(getattr(getattr(self, "state", None), "turn_number", "?")), e, "used fallback")
             pass
 
         # Fallback: basic combat narration
@@ -678,7 +692,8 @@ class GameLoop:
                 npc.system_prompt = system_prompt
                 npc.backstory = backstory
                 return
-        except Exception:
+        except Exception as e:
+            log_crash("author_character", "turn={}".format(getattr(getattr(self, "state", None), "turn_number", "?")), e, "used fallback")
             pass
 
         # Fallback: generate a basic system prompt from stats
@@ -721,7 +736,8 @@ class GameLoop:
             response = call_npc_model(npc, npc.system_prompt, npc_context + "\n\nPlayer says: " + player_message)
             if response:
                 return response
-        except Exception:
+        except Exception as e:
+            log_crash("call_npc_model", "turn={}".format(getattr(getattr(self, "state", None), "turn_number", "?")), e, "used fallback")
             pass
 
         # Fallback: generate a simple response based on NPC personality
@@ -772,7 +788,8 @@ class GameLoop:
             delta = calculate_persuasion_delta(evaluation_scores, npc, npc.relationship)
             if npc.relationship:
                 npc.relationship.persuasion_progress += delta
-        except Exception:
+        except Exception as e:
+            log_crash("calculate_persuasion_delta", "turn={}".format(getattr(getattr(self, "state", None), "turn_number", "?")), e, "used fallback")
             pass
 
     # --- Deception check ---
@@ -785,7 +802,8 @@ class GameLoop:
             if detected and npc.relationship:
                 npc.relationship.trust -= 15
                 npc.relationship.flags.append("caught_lying")
-        except Exception:
+        except Exception as e:
+            log_crash("detect_lie", "turn={}".format(getattr(getattr(self, "state", None), "turn_number", "?")), e, "used fallback")
             # Simple fallback: compare player honesty vs NPC perception
             if npc.stats.perception > self.state.player.stats.charisma:
                 if npc.relationship:
@@ -828,7 +846,8 @@ class GameLoop:
                     "terrain": road.terrain, "weather": "clear"
                 })
                 self.ui.show_narration(summary)
-            except Exception:
+            except Exception as e:
+                log_crash("narrate_travel_summary", "turn={}".format(getattr(getattr(self, "state", None), "turn_number", "?")), e, "used fallback")
                 self.ui.show_narration(f"Day {day + 1} of travel. The {road.terrain} stretches on.")
 
             # Advance time (one full day)
@@ -848,7 +867,8 @@ class GameLoop:
                     self.ui.show_narration(f"Something happens on the road...")
                     # Drop into normal play for the event
                     return  # let the main loop handle it
-            except Exception:
+            except Exception as e:
+                log_crash("roll_travel_event", "turn={}".format(getattr(getattr(self, "state", None), "turn_number", "?")), e, "used fallback")
                 # Random event chance
                 if random.random() < road.danger_rating / 200:
                     self.ui.show_narration(
@@ -913,7 +933,8 @@ class GameLoop:
             events = call_model("director", director_system_prompt, director_context, json_mode=True)
             if events and isinstance(events, list):
                 apply_director_events(events, self.state.world)
-        except Exception:
+        except Exception as e:
+            log_crash("call_model", "turn={}".format(getattr(getattr(self, "state", None), "turn_number", "?")), e, "used fallback")
             pass  # Director is optional — world just stays quieter
 
     # ============================================================
@@ -945,7 +966,8 @@ class GameLoop:
             }
             death_text = narrate_death(death_context, world_state)
             self.ui.show_combat(death_text)
-        except Exception:
+        except Exception as e:
+            log_crash("narrate_death", "turn={}".format(getattr(getattr(self, "state", None), "turn_number", "?")), e, "used fallback")
             self.ui.show_combat(f"\nYou have died. Cause: {cause}.")
 
         # Show a brief epilogue
@@ -997,7 +1019,8 @@ class GameLoop:
             if intro:
                 self.ui.show_narration(intro)
                 return
-        except Exception:
+        except Exception as e:
+            log_crash("narrate", "turn={}".format(getattr(getattr(self, "state", None), "turn_number", "?")), e, "used fallback")
             pass
 
         # Fallback: show the raw scene context
