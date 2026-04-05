@@ -263,7 +263,8 @@ class GameLoop:
         """Move the player locally or start travel."""
         try:
             from app.engine.movement import move_local
-            result = move_local(self.state.player, self.state.world, action.target or action.intent)
+            # Fix #1: move_local expects (player, target_id, world)
+            result = move_local(self.state.player, action.target or action.intent, self.state.world)
             return {"type": "movement", "result": result}
         except Exception:
             # Fallback: try to find a matching location and move there
@@ -342,7 +343,8 @@ class GameLoop:
         # Update trust slightly based on interaction
         try:
             from app.engine.social import update_trust
-            update_trust(npc, player, action)
+            # Fix #2: update_trust expects (npc, interaction_type_string, details_dict)
+            update_trust(npc, "kind_words")
         except Exception:
             # Small default trust bump for friendly interaction
             if npc.relationship:
@@ -362,7 +364,11 @@ class GameLoop:
 
         try:
             from app.engine.combat import resolve_combat
-            outcome = resolve_combat(self.state.player, npc, self.state.world)
+            # Fix #3: resolve_combat expects (player, [enemies], companions, context)
+            # Look up companion NPC objects from player.companions IDs
+            companions = [self.state.world.npcs[cid] for cid in self.state.player.companions
+                          if cid in self.state.world.npcs]
+            outcome = resolve_combat(self.state.player, [npc], companions, {})
             # Apply results to game state
             self._apply_combat_outcome(outcome, npc)
             return {"type": "combat", "outcome": outcome, "enemy_name": npc.name}
@@ -436,7 +442,18 @@ class GameLoop:
         """Look around or examine something."""
         try:
             from app.engine.perception import observe_scene
-            result = observe_scene(self.state.player, self.state.world, action.target)
+            # Fix #7: observe_scene expects (player_perception_int, scene_details_list)
+            perception = self.state.player.get_effective_stats().perception
+            loc = self.state.world.locations.get(self.state.player.location)
+            scene_details = []
+            if loc:
+                scene_details.append({"description": loc.description or loc.name, "min_perception": 0})
+                for feat in loc.features:
+                    scene_details.append({"description": feat, "min_perception": 30})
+            npcs_here = self.state.world.npcs_at_location(self.state.player.location)
+            for n in npcs_here:
+                scene_details.append({"description": n.brief_description(), "min_perception": 10})
+            result = observe_scene(perception, scene_details)
             return {"type": "observation", "result": result}
         except Exception:
             # Fallback: describe the current location and NPCs
@@ -471,7 +488,10 @@ class GameLoop:
         """Sneaky stuff — stealing, hiding, eavesdropping."""
         try:
             from app.engine.perception import eavesdrop
-            result = eavesdrop(self.state.player, self.state.world, action.target)
+            # Fix #8: eavesdrop expects (player_perception_int, npcs_talking_list)
+            perception = self.state.player.get_effective_stats().perception
+            npcs_here = self.state.world.npcs_at_location(self.state.player.location)
+            result = eavesdrop(perception, npcs_here)
             return {"type": "stealth", "result": result}
         except Exception:
             # Simple stealth check based on agility
@@ -573,7 +593,8 @@ class GameLoop:
         # Try the narrator model
         try:
             from app.ai.narrator import narrate
-            narration = narrate(action, engine_result, scene_context)
+            # Fix #10: narrate expects (scene_context, action, engine_result)
+            narration = narrate(scene_context, action, engine_result)
             if narration:
                 return narration
         except Exception:
@@ -586,7 +607,12 @@ class GameLoop:
         """Narrate combat specifically — it gets special treatment."""
         try:
             from app.ai.narrator import narrate_combat
-            return narrate_combat(engine_result, scene_context)
+            # Fix #11: narrate_combat expects (CombatOutcome, participants_info_string)
+            outcome = engine_result.get("outcome")
+            enemy_name = engine_result.get("enemy_name", "unknown")
+            participants_info = f"Player vs {enemy_name}. Scene: {scene_context}"
+            if outcome:
+                return narrate_combat(outcome, participants_info)
         except Exception:
             pass
 
@@ -641,9 +667,16 @@ class GameLoop:
         """
         try:
             from app.ai.character_author import author_character
-            prompt = author_character(npc, self.state.world)
-            if prompt:
-                npc.system_prompt = prompt
+            # Fix #4: author_character returns (system_prompt, backstory) tuple
+            # and expects a world context string, not the World object
+            world = self.state.world
+            world_context = (f"World: {world.name}, Era: {world.era}, Tone: {world.tone}. "
+                             f"Themes: {', '.join(world.themes)}. "
+                             f"Traditions: {', '.join(world.intellectual_traditions[:3])}.")
+            system_prompt, backstory = author_character(npc, world_context)
+            if system_prompt:
+                npc.system_prompt = system_prompt
+                npc.backstory = backstory
                 return
         except Exception:
             pass
@@ -684,7 +717,8 @@ class GameLoop:
         """
         try:
             from app.ai.models import call_npc_model
-            response = call_npc_model(npc, player_message, npc_context)
+            # Fix #19: call_npc_model expects (npc, system_prompt, conversation_context)
+            response = call_npc_model(npc, npc.system_prompt, npc_context + "\n\nPlayer says: " + player_message)
             if response:
                 return response
         except Exception:
@@ -733,7 +767,9 @@ class GameLoop:
         """Run the persuasion engine when the player is trying to convince an NPC."""
         try:
             from app.engine.social import calculate_persuasion_delta
-            delta = calculate_persuasion_delta(npc, self.state.player, action)
+            # Fix #5: calculate_persuasion_delta expects (evaluation_scores_dict, npc, relationship)
+            evaluation_scores = {"relevance": 0.5, "coherence": 0.7, "tone_match": 0.5, "info_valid": 1.0}
+            delta = calculate_persuasion_delta(evaluation_scores, npc, npc.relationship)
             if npc.relationship:
                 npc.relationship.persuasion_progress += delta
         except Exception:
@@ -744,7 +780,8 @@ class GameLoop:
         """Check if the NPC detects the player's lie."""
         try:
             from app.engine.perception import detect_lie
-            detected = detect_lie(npc, self.state.player, action)
+            # Fix #6: detect_lie expects (player, npc, lie_severity_int)
+            detected = detect_lie(self.state.player, npc, 50)
             if detected and npc.relationship:
                 npc.relationship.trust -= 15
                 npc.relationship.flags.append("caught_lying")
@@ -785,7 +822,11 @@ class GameLoop:
             # Show travel narration
             try:
                 from app.ai.narrator import narrate_travel_summary
-                summary = narrate_travel_summary(day + 1, days, road.terrain)
+                # Fix #12: narrate_travel_summary expects a single dict
+                summary = narrate_travel_summary({
+                    "day": day + 1, "total_days": days,
+                    "terrain": road.terrain, "weather": "clear"
+                })
                 self.ui.show_narration(summary)
             except Exception:
                 self.ui.show_narration(f"Day {day + 1} of travel. The {road.terrain} stretches on.")
@@ -801,7 +842,8 @@ class GameLoop:
             # Check for travel event
             try:
                 from app.engine.movement import roll_travel_event
-                event = roll_travel_event(road, world)
+                # Fix #23: roll_travel_event expects (road, player, day_number)
+                event = roll_travel_event(road, player, day + 1)
                 if event:
                     self.ui.show_narration(f"Something happens on the road...")
                     # Drop into normal play for the event
@@ -836,12 +878,13 @@ class GameLoop:
         # Fatigue ticks up slightly
         player.fatigue = min(100, player.fatigue + 2)
 
-        # Heal injuries that have timers
+        # Fix #26: only decrement injury days_remaining at dawn (once per day)
         healed = []
         remaining = []
         for inj in player.injuries:
             if hasattr(inj, 'days_remaining') and inj.days_remaining > 0:
-                inj.days_remaining -= 1
+                if self.state.world.time_slot == "dawn":
+                    inj.days_remaining -= 1
                 if inj.days_remaining <= 0:
                     healed.append(inj)
                     continue
@@ -856,11 +899,19 @@ class GameLoop:
         """Run the Director to generate daily world events."""
         try:
             from app.engine.director import prepare_director_context, apply_director_events
-            from app.game.state import assemble_world_summary
+            from app.ai.models import call_model
 
-            context = assemble_world_summary(self.state)
-            events = prepare_director_context(context, self.state.world)
-            if events:
+            # Fix #9: prepare_director_context returns a string for the Director AI
+            # Then we call the director model with that context and apply events
+            director_context = prepare_director_context(self.state.world, self.state.player)
+            director_system_prompt = (
+                "You are the Director of a text RPG world. Generate 1-3 daily events as JSON. "
+                "Each event is a dict with 'type', 'target', 'description'. "
+                "Types: npc_move, conflict_update, rumor, weather, npc_fate_change. "
+                "Keep events plausible and interesting. Return a JSON list."
+            )
+            events = call_model("director", director_system_prompt, director_context, json_mode=True)
+            if events and isinstance(events, list):
                 apply_director_events(events, self.state.world)
         except Exception:
             pass  # Director is optional — world just stays quieter
@@ -877,7 +928,22 @@ class GameLoop:
         # Try to narrate the death
         try:
             from app.ai.narrator import narrate_death
-            death_text = narrate_death(self.state, cause)
+            # Fix #13: narrate_death expects (death_context_dict, world_state_dict)
+            player = self.state.player
+            world = self.state.world
+            death_context = {
+                "cause": cause,
+                "location": player.location,
+                "days_alive": player.days_alive,
+                "kills": player.kills,
+            }
+            world_state = {
+                "world_name": world.name,
+                "day": world.current_day,
+                "season": world.season,
+                "active_conflicts": len(world.active_conflicts),
+            }
+            death_text = narrate_death(death_context, world_state)
             self.ui.show_combat(death_text)
         except Exception:
             self.ui.show_combat(f"\nYou have died. Cause: {cause}.")
@@ -924,9 +990,10 @@ class GameLoop:
         try:
             from app.ai.narrator import narrate
             intro_action = Action(type="observation", intent="look around at your surroundings")
-            intro = narrate(intro_action,
-                            {"type": "observation", "description": "The player looks around."},
-                            scene)
+            # Fix #14: narrate expects (scene_context, action, engine_result)
+            intro = narrate(scene,
+                            intro_action,
+                            {"type": "observation", "description": "The player looks around."})
             if intro:
                 self.ui.show_narration(intro)
                 return

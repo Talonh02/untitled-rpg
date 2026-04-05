@@ -269,16 +269,21 @@ def consume_food(player):
     """
     food_per_day = GAME_CONSTANTS.get("food_per_day", 1)
 
-    # Check if player has food in inventory
-    food_count = player.inventory.count("food")
+    # Fix #24: check for any inventory item containing food-related words (partial match)
+    food_keywords = ("food", "meat", "bread", "cheese")
+    food_items = [item for item in player.inventory
+                  if any(kw in item.lower() for kw in food_keywords)]
 
-    if food_count >= food_per_day:
-        # Remove food from inventory
+    if len(food_items) >= food_per_day:
+        # Remove consumed food items from inventory
         for _ in range(food_per_day):
-            player.inventory.remove("food")
+            if food_items:
+                player.inventory.remove(food_items.pop(0))
         # Hunger decreases when fed
         player.hunger = max(0, player.hunger - 10)
-        return {"fed": True, "hunger": player.hunger, "food_remaining": player.inventory.count("food")}
+        remaining = len([item for item in player.inventory
+                         if any(kw in item.lower() for kw in food_keywords)])
+        return {"fed": True, "hunger": player.hunger, "food_remaining": remaining}
     else:
         # No food — hunger increases by 20 per day
         player.hunger = min(100, player.hunger + 20)

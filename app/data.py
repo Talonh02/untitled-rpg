@@ -254,6 +254,8 @@ class NPC:
     faction_loyalty: int = 50
     temperament: str = "calm"     # volatile, calm, melancholy, cheerful, cold
     power_tier: int = 1           # 0=animal, 1=human, 2=exceptional, 3=superhuman, 4=mythic, 5=divine
+    weapon: str = "unarmed"       # Fix #27: weapon for combat resolution
+    armor: str = "none"           # Fix #27: armor for combat resolution
     location: str = ""            # node ID in spatial tree
     system_prompt: str = ""       # written by Character Author (empty = not yet authored)
     backstory: str = ""           # richness scales with depth/fate
@@ -304,7 +306,9 @@ class NPC:
             "occupation": self.occupation, "social_class": self.social_class,
             "wealth": self.wealth, "faction": self.faction,
             "faction_loyalty": self.faction_loyalty,
-            "temperament": self.temperament, "location": self.location,
+            "temperament": self.temperament,
+            "weapon": self.weapon, "armor": self.armor,
+            "location": self.location,
             "system_prompt": self.system_prompt, "backstory": self.backstory,
             "secret": self.secret,
             "relationship": self.relationship.to_dict() if self.relationship else None,

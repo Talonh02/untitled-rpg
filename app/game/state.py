@@ -97,6 +97,8 @@ def _serialize_world(world: World) -> dict:
         "events_log": world.events_log,
         "reputation_queue": world.reputation_queue,
         "active_conflicts": world.active_conflicts,
+        # Fix #17: serialize world.items
+        "items": {iid: item.to_dict() for iid, item in world.items.items()},
     }
 
 
@@ -124,6 +126,12 @@ def _deserialize_world(d: dict) -> World:
             coordinates=tuple(coords),
             terrain=loc_data.get("terrain", ""),
             mood=loc_data.get("mood", ""),
+            # Fix #17: restore dungeon fields
+            is_dungeon=loc_data.get("is_dungeon", False),
+            locked=loc_data.get("locked", False),
+            lock_difficulty=loc_data.get("lock_difficulty", 0),
+            trap=loc_data.get("trap", {}),
+            notable_items=loc_data.get("notable_items", []),
         )
 
     # Rebuild roads
@@ -155,6 +163,10 @@ def _deserialize_world(d: dict) -> World:
     w.events_log = d.get("events_log", [])
     w.reputation_queue = d.get("reputation_queue", [])
     w.active_conflicts = d.get("active_conflicts", [])
+    # Fix #17: restore world.items
+    from app.data import Item
+    for iid, item_data in d.get("items", {}).items():
+        w.items[iid] = Item(**{k: v for k, v in item_data.items() if k in Item.__dataclass_fields__})
     return w
 
 
@@ -200,6 +212,8 @@ def _deserialize_npc(d: dict) -> NPC:
         faction=d.get("faction", "none"),
         faction_loyalty=d.get("faction_loyalty", 50),
         temperament=d.get("temperament", "calm"),
+        weapon=d.get("weapon", "unarmed"),    # Fix #27: restore weapon
+        armor=d.get("armor", "none"),          # Fix #27: restore armor
         location=d.get("location", ""),
         system_prompt=d.get("system_prompt", ""),
         backstory=d.get("backstory", ""),
@@ -207,7 +221,8 @@ def _deserialize_npc(d: dict) -> NPC:
         relationship=rel,
         knowledge_tags=d.get("knowledge_tags", []),
         injuries=injuries,
-        schedule_template=d.get("schedule_template", ""),
+        schedule_template=d.get("schedule_template", ""),  # Fix #17: restore schedule_template
+        power_tier=d.get("power_tier", 1),  # Fix #17: restore power_tier
         is_companion=d.get("is_companion", False),
         is_alive=d.get("is_alive", True),
         met_player=d.get("met_player", False),
@@ -541,7 +556,8 @@ def _try_model_summary(entries: list) -> str:
             + "\n".join(text_parts)
         )
 
-        result = call_model("summarizer", prompt)
+        # Fix #18: call_model needs 3 args (role, system_prompt, user_message)
+        result = call_model("summarizer", "You summarize game events concisely.", prompt)
         if result and isinstance(result, str):
             return result.strip()
     except Exception:

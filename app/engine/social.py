@@ -296,8 +296,8 @@ def apply_trust_decay(npc, is_companion=False):
     trust = npc.relationship.trust
     threshold = GAME_CONSTANTS.get("trust_no_decay_threshold", 60)
 
-    # High trust doesn't decay — real relationships persist
-    if trust > threshold:
+    # Fix #21: High trust doesn't decay, and extreme negative trust (grudges) also persists
+    if trust > threshold or trust < -threshold:
         return
 
     if is_companion:

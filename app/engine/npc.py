@@ -70,6 +70,19 @@ LAST_NAMES = [
 ]
 
 
+def _roll_wealth(social_class):
+    """Roll wealth in range based on social class, per MECHANICS.md floors."""
+    wealth_ranges = {
+        "destitute": (0, 15),
+        "working":   (10, 40),
+        "merchant":  (35, 75),
+        "noble":     (60, 95),
+        "royal":     (85, 100),
+    }
+    low, high = wealth_ranges.get(social_class, (10, 40))
+    return random.randint(low, high)
+
+
 def _generate_name():
     """Pick a random first + last name combo."""
     return f"{random.choice(FIRST_NAMES)} {random.choice(LAST_NAMES)}"
@@ -179,7 +192,8 @@ def create_npc(world, location_id, fate=0.0, occupation="", social_class="workin
         stats=stats,
         occupation=occupation,
         social_class=social_class,
-        wealth=stats.to_dict().get("education", 42),  # placeholder — wealth is in stats
+        # Fix #20: proper wealth roll based on social_class floors from MECHANICS.md
+        wealth=_roll_wealth(social_class),
         faction="none",
         faction_loyalty=random.randint(20, 80),
         temperament=temperament,
@@ -187,6 +201,25 @@ def create_npc(world, location_id, fate=0.0, occupation="", social_class="workin
         schedule_template=occupation if occupation in SCHEDULE_TEMPLATES else "default",
         model_tier=model_tier,
     )
+
+    # Fix #27: give NPCs default weapon/armor based on occupation
+    OCCUPATION_EQUIPMENT = {
+        "soldier":    ("long_sword", "chain"),
+        "noble":      ("short_sword", "leather"),
+        "thief":      ("dagger", "none"),
+        "blacksmith": ("hammer", "leather"),
+        "spy":        ("dagger", "none"),
+        "priest":     ("staff", "none"),
+        "beggar":     ("unarmed", "none"),
+        "merchant":   ("unarmed", "none"),
+        "scholar":    ("unarmed", "none"),
+        "farmer":     ("staff", "none"),
+        "artist":     ("unarmed", "none"),
+        "healer":     ("unarmed", "none"),
+    }
+    weapon, armor = OCCUPATION_EQUIPMENT.get(occupation, ("unarmed", "none"))
+    npc.weapon = weapon
+    npc.armor = armor
 
     # Add to the world
     world.npcs[npc_id] = npc
@@ -265,11 +298,12 @@ def populate_location(world, location_id, count, occupation_weights=None):
 
         # Most NPCs are nobodies (fate 0.0). Occasionally one is a bit interesting.
         fate = 0.0
+        # Fix #25: check > 0.99 first so it isn't swallowed by > 0.95
         fate_roll = random.random()
-        if fate_roll > 0.95:
-            fate = random.uniform(0.1, 0.3)  # slightly interesting (5% chance)
-        elif fate_roll > 0.99:
+        if fate_roll > 0.99:
             fate = random.uniform(0.3, 0.5)  # potential companion material (1% chance)
+        elif fate_roll > 0.95:
+            fate = random.uniform(0.1, 0.3)  # slightly interesting (4% chance)
 
         npc = create_npc(world, location_id, fate=fate, occupation=occ, social_class=sc)
         npcs.append(npc)
