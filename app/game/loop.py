@@ -166,7 +166,10 @@ class GameLoop:
             return Action(type="movement", intent=text, raw_input=raw_input)
 
         # Combat keywords
-        if any(word in text for word in ["attack ", "fight ", "punch ", "strike ", "kill "]):
+        combat_words = ["attack", "fight", "punch", "strike", "kill", "hit", "stab",
+                        "slash", "headbutt", "kick", "grab", "choke", "swing at", "tackle",
+                        "shove", "throw", "wrestle", "bite", "elbow", "knee"]
+        if any(word in text for word in combat_words):
             return Action(type="combat", intent=text, involves_combat=True, raw_input=raw_input)
 
         # Dialogue keywords — check for quotes or "say"/"tell"/"ask"
@@ -261,6 +264,17 @@ class GameLoop:
         elif action_type == "nonsense":
             return self._handle_nonsense(action)
         else:
+            # Before falling through to generic, check if this looks like combat
+            # that the interpreter missed (common when JSON parsing fails)
+            raw = (action.raw_input or action.intent or "").lower()
+            combat_words = ["attack", "fight", "punch", "strike", "kill", "hit", "stab",
+                            "slash", "headbutt", "kick", "grab", "choke", "swing", "tackle",
+                            "shove", "throw", "wrestle", "bite", "elbow", "knee"]
+            if any(w in raw for w in combat_words):
+                action.type = "combat"
+                action.involves_combat = True
+                return self._handle_combat(action)
+
             # Generic action — just narrate it
             return {"type": "generic", "description": action.intent}
 
@@ -649,7 +663,10 @@ class GameLoop:
     def _find_target_npc(self, action: Action) -> NPC:
         """
         Find the NPC the player is trying to interact with.
-        Checks the action target first, then searches by name in nearby NPCs.
+        Matches against: NPC id, name, occupation, and common descriptors
+        like "stranger", "woman", "man", "guard", "girl", "bartender", etc.
+        If nothing matches but there's only one NPC here, pick them.
+        If the player says "random" or "someone" or "stranger", pick randomly.
         """
         world = self.state.world
 
@@ -657,19 +674,56 @@ class GameLoop:
         if action.target and action.target in world.npcs:
             return world.npcs[action.target]
 
-        # Search by name among NPCs at the player's location
+        # Get NPCs at the player's location
         npcs_here = world.npcs_at_location(self.state.player.location)
         if not npcs_here:
             return None
 
-        # Try to match the target or intent text against NPC names
         search_text = (action.target or action.intent or action.raw_input).lower()
+
+        # Check for "random" / "stranger" / "someone" / "anyone" — pick a random NPC
+        random_words = ["random", "stranger", "someone", "anyone", "nearby", "closest"]
+        if any(w in search_text for w in random_words):
+            return random.choice(npcs_here)
+
+        # Try matching against NPC name
         for npc in npcs_here:
             if npc.name.lower() in search_text or search_text in npc.name.lower():
                 return npc
 
+        # Try matching against occupation (handles "the guard", "bartender", "merchant")
+        for npc in npcs_here:
+            occ = npc.occupation.lower()
+            # Also check common synonyms
+            occ_synonyms = {
+                "barkeeper": ["bartender", "barkeep", "barman"],
+                "soldier": ["guard", "knight", "warrior"],
+                "merchant": ["trader", "shopkeeper", "vendor", "seller"],
+                "healer": ["doctor", "medic", "herbalist"],
+                "scholar": ["professor", "teacher", "academic"],
+                "farmer": ["peasant"],
+                "blacksmith": ["smith", "forge"],
+            }
+            all_names = [occ] + occ_synonyms.get(occ, [])
+            if any(name in search_text for name in all_names):
+                return npc
+
+        # Try matching gendered descriptors ("the woman", "the man", "girl", "old man")
+        gender_hints = {"woman": "f", "girl": "f", "lady": "f", "her": "f",
+                        "man": "m", "guy": "m", "boy": "m", "him": "m"}
+        for hint, gender in gender_hints.items():
+            if hint in search_text:
+                # Pick first NPC that vaguely matches (rough heuristic using name)
+                # In future: NPCs should have a gender field
+                return random.choice(npcs_here)
+
         # If there's only one NPC here, they're probably the target
         if len(npcs_here) == 1:
+            return npcs_here[0]
+
+        # Last resort with multiple NPCs — pick the first one
+        # Better than returning None and having the narrator improvise
+        if npcs_here:
             return npcs_here[0]
 
         return None
