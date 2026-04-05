@@ -8,6 +8,14 @@ import json
 import random
 import time
 import traceback
+import logging
+
+# Send debug messages to crash_log instead of stdout
+_log = logging.getLogger("models")
+_log.setLevel(logging.DEBUG)
+_handler = logging.FileHandler("crash_log.txt", mode="a")
+_handler.setFormatter(logging.Formatter("[%(asctime)s] %(message)s"))
+_log.addHandler(_handler)
 
 import app.config as config
 
@@ -32,7 +40,7 @@ def call_model(role, system_prompt, user_message, json_mode=False):
     """
     model_info = config.MODELS.get(role)
     if not model_info:
-        print(f"[models] WARNING: Unknown role '{role}', returning fallback.")
+        _log.debug(f" WARNING: Unknown role '{role}', returning fallback.")
         return _fallback(role, json_mode)
 
     provider = model_info["provider"]
@@ -50,7 +58,7 @@ def call_model(role, system_prompt, user_message, json_mode=False):
             elif provider == "openai":
                 text = _call_openai(model_id, system_prompt, user_message, max_tokens)
             else:
-                print(f"[models] Unknown provider '{provider}' for role '{role}'.")
+                _log.debug(f" Unknown provider '{provider}' for role '{role}'.")
                 return _fallback(role, json_mode)
 
             # If we want JSON, try to parse it
@@ -60,12 +68,12 @@ def call_model(role, system_prompt, user_message, json_mode=False):
 
         except Exception as e:
             last_error = e
-            print(f"[models] Attempt {attempt + 1} failed for {role} ({provider}/{model_id}): {e}")
+            _log.debug(f" Attempt {attempt + 1} failed for {role} ({provider}/{model_id}): {e}")
             if attempt == 0:
                 time.sleep(1)  # brief pause before retry
 
     # Both attempts failed
-    print(f"[models] All attempts failed for {role}. Last error: {last_error}")
+    _log.debug(f" All attempts failed for {role}. Last error: {last_error}")
     return _fallback(role, json_mode)
 
 
@@ -96,7 +104,7 @@ def call_npc_model(npc, system_prompt, conversation_context):
 
     # Make sure this role exists in config
     if role_key not in config.MODELS:
-        print(f"[models] NPC tier '{role_key}' not in config, defaulting to npc_flash.")
+        _log.debug(f" NPC tier '{role_key}' not in config, defaulting to npc_flash.")
         role_key = "npc_flash"
 
     return call_model(role_key, system_prompt, conversation_context)
@@ -208,8 +216,8 @@ def _parse_json(text, role):
     try:
         return json.loads(cleaned)
     except json.JSONDecodeError as e:
-        print(f"[models] JSON parse failed for {role}: {e}")
-        print(f"[models] Raw text was: {text[:200]}...")
+        _log.debug(f" JSON parse failed for {role}: {e}")
+        _log.debug(f" Raw text was: {text[:200]}...")
         return _fallback(role, json_mode=True)
 
 

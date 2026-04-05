@@ -29,7 +29,7 @@ class TerminalUI:
     def __init__(self):
         self.console = Console()
         # Define styles for different kinds of text
-        self.narration_style = Style(color="white", italic=True, dim=True)
+        self.narration_style = Style(color="white", italic=True)
         self.dialogue_style = Style(color="bright_cyan")
         self.combat_style = Style(color="red", bold=True)
         self.system_style = Style(color="bright_black")

@@ -304,8 +304,14 @@ def _find_starting_location(world) -> str:
             chosen = random.choice(safe_cities)
         else:
             chosen = random.choice(cities)
-        # If the city has children (districts/buildings), pick one
+        # Prefer starting at a tavern/inn (the classic arrival point)
         if chosen.children_ids:
+            tavern_keywords = ["tavern", "inn", "rest", "ale", "drum", "nail", "horse"]
+            for child_id in chosen.children_ids:
+                child = world.locations.get(child_id)
+                if child and any(kw in child.name.lower() for kw in tavern_keywords):
+                    return child_id
+            # No tavern found — pick any building
             child_id = random.choice(chosen.children_ids)
             if child_id in world.locations:
                 return child_id

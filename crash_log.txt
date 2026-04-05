@@ -1,11 +1,10 @@
-
-======================================================================
-[2026-04-05 13:55:57] CAUGHT EXCEPTION in test_function
-  Args: testing=true
-  Error: ValueError: test error
-  Fallback: test fallback
-  Traceback:
-Traceback (most recent call last):
-  File "<string>", line 25, in <module>
-ValueError: test error
-
+# Crash log — started 2026-04-05 14:46:41
+[2026-04-05 14:48:11,885]  JSON parse failed for interpreter: Expecting value: line 1 column 141 (char 140)
+[2026-04-05 14:48:11,885]  Raw text was: {"type": "trade", "target": "market", "manner": "seeking to purchase", "intent": "to acquire a knife", "dialogue_content": null, "feasible":...
+[2026-04-05 14:49:11,088]  JSON parse failed for interpreter: Expecting property name enclosed in double quotes: line 5 column 36 (char 114)
+[2026-04-05 14:49:11,088]  Raw text was: {
+    "type": "dialogue",
+    "target": null,
+    "manner": "curious, direct",
+    "intent": "to find the market",
+    ...

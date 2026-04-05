@@ -29,7 +29,7 @@ def get_key(name):
 
 ANTHROPIC_API_KEY = get_key("ANTHROPIC_API_KEY") or get_key("anthropic")
 OPENAI_API_KEY = get_key("OPENAI_API_KEY") or get_key("openai")
-GEMINI_API_KEY = get_key("GEMINI_API_KEY") or get_key("gemini")
+GEMINI_API_KEY = get_key("GEMINI_API_KEY") or get_key("gemini") or get_key("gemini_api_key")
 
 # --- Model Configuration ---
 # Maps our role names to actual model IDs and providers
@@ -37,22 +37,22 @@ MODELS = {
     # Narrator — best prose (Sonnet)
     "narrator": {"provider": "anthropic", "model": "claude-sonnet-4-20250514", "max_tokens": 1024},
     # Interpreter — cheap, fast, just extracts intent
-    "interpreter": {"provider": "gemini", "model": "gemini-2.5-flash-preview-05-20", "max_tokens": 512},
+    "interpreter": {"provider": "gemini", "model": "gemini-2.5-flash", "max_tokens": 1024},
     # Character Author — writes NPC souls from stat blocks (Opus)
     "character_author": {"provider": "anthropic", "model": "claude-sonnet-4-20250514", "max_tokens": 2048},
     # Director — daily world events
-    "director": {"provider": "gemini", "model": "gemini-2.5-flash-preview-05-20", "max_tokens": 1024},
+    "director": {"provider": "gemini", "model": "gemini-2.5-flash", "max_tokens": 2048},
     # World Builder — one-time world generation (big call)
     "world_builder": {"provider": "anthropic", "model": "claude-sonnet-4-20250514", "max_tokens": 8192},
     # NPC models by tier (selected based on depth score)
-    "npc_flash_lite": {"provider": "gemini", "model": "gemini-2.0-flash-lite", "max_tokens": 256},
-    "npc_flash": {"provider": "gemini", "model": "gemini-2.5-flash-preview-05-20", "max_tokens": 512},
+    "npc_flash_lite": {"provider": "gemini", "model": "gemini-3.1-flash-lite-preview", "max_tokens": 256},
+    "npc_flash": {"provider": "gemini", "model": "gemini-2.5-flash", "max_tokens": 512},
     "npc_sonnet": {"provider": "anthropic", "model": "claude-sonnet-4-20250514", "max_tokens": 768},
     "npc_opus": {"provider": "anthropic", "model": "claude-sonnet-4-20250514", "max_tokens": 1024},
     # Summarizer — compresses action logs
-    "summarizer": {"provider": "gemini", "model": "gemini-2.0-flash-lite", "max_tokens": 512},
+    "summarizer": {"provider": "gemini", "model": "gemini-3.1-flash-lite-preview", "max_tokens": 512},
     # Argument evaluator — rates persuasion quality
-    "evaluator": {"provider": "gemini", "model": "gemini-2.5-flash-preview-05-20", "max_tokens": 256},
+    "evaluator": {"provider": "gemini", "model": "gemini-2.5-flash", "max_tokens": 256},
 }
 
 # NPC model tier thresholds (with fuzz — see select_npc_model in models.py)

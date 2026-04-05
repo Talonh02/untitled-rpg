@@ -302,7 +302,14 @@ def assemble_scene_context(game_state: GameState) -> str:
     if npcs_here:
         npc_descriptions = []
         for npc in npcs_here[:10]:  # cap at 10 to keep context short
-            npc_descriptions.append(npc.brief_description())
+            if npc.met_player:
+                # Player knows this person — use their name
+                npc_descriptions.append(npc.brief_description())
+            else:
+                # Player hasn't met them — describe by appearance/occupation only
+                age_desc = "young" if npc.age < 25 else "middle-aged" if npc.age < 50 else "older"
+                build = "slight" if npc.stats.strength < 30 else "sturdy" if npc.stats.strength > 65 else ""
+                npc_descriptions.append(f"a {age_desc} {build} {npc.occupation}".strip())
         parts.append(f"Present: {'; '.join(npc_descriptions)}")
     else:
         parts.append("You are alone here.")
