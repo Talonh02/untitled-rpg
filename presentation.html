@@ -1,0 +1,1434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Loom — Design Review</title>
+<style>
+  /* ── Reset & Base ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-snap-type: y mandatory; scroll-behavior: smooth; }
+  body {
+    font-family: 'Georgia', 'Times New Roman', serif;
+    background: #0f0d0b;
+    color: #d4c9b0;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Slide Container ── */
+  .slide {
+    min-height: 100vh;
+    scroll-snap-align: start;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 2rem 1.5rem;
+    position: relative;
+    border-bottom: 1px solid rgba(196,163,90,0.12);
+  }
+  .slide-inner {
+    max-width: 800px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  /* ── Section Headers ── */
+  .section-label {
+    font-family: 'Helvetica Neue', 'Arial', sans-serif;
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #c4a35a;
+    opacity: 0.7;
+    margin-bottom: 0.5rem;
+  }
+
+  /* ── Typography ── */
+  h1 {
+    font-size: clamp(2rem, 6vw, 3.5rem);
+    color: #c4a35a;
+    font-weight: 400;
+    line-height: 1.15;
+    margin-bottom: 0.75rem;
+  }
+  h2 {
+    font-size: clamp(1.4rem, 4vw, 2rem);
+    color: #c4a35a;
+    font-weight: 400;
+    margin-bottom: 1rem;
+    line-height: 1.25;
+  }
+  h3 {
+    font-size: clamp(1rem, 2.5vw, 1.25rem);
+    color: #c4a35a;
+    font-weight: 400;
+    margin-bottom: 0.5rem;
+    margin-top: 1rem;
+  }
+  p {
+    margin-bottom: 0.75rem;
+    font-size: clamp(0.9rem, 2.2vw, 1.05rem);
+  }
+  .tagline {
+    font-style: italic;
+    color: #a89a7e;
+    font-size: clamp(1rem, 3vw, 1.3rem);
+    margin-bottom: 1rem;
+  }
+  .subtitle {
+    color: #8a7e68;
+    font-size: 0.85rem;
+  }
+  .highlight {
+    color: #c4a35a;
+    font-weight: 600;
+  }
+  .quote {
+    border-left: 2px solid #c4a35a;
+    padding-left: 1rem;
+    color: #a89a7e;
+    font-style: italic;
+    margin: 1rem 0;
+    font-size: clamp(0.9rem, 2.2vw, 1.05rem);
+  }
+  strong { color: #c4a35a; font-weight: 600; }
+
+  /* ── Lists ── */
+  ul, ol {
+    padding-left: 1.2rem;
+    margin-bottom: 0.75rem;
+    font-size: clamp(0.85rem, 2vw, 1rem);
+  }
+  li { margin-bottom: 0.35rem; }
+
+  /* ── Tables ── */
+  .table-wrap { overflow-x: auto; margin: 0.75rem 0; -webkit-overflow-scrolling: touch; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: clamp(0.72rem, 1.8vw, 0.88rem);
+  }
+  th {
+    text-align: left;
+    color: #c4a35a;
+    font-weight: 600;
+    padding: 0.4rem 0.6rem;
+    border-bottom: 1px solid rgba(196,163,90,0.3);
+    white-space: nowrap;
+  }
+  td {
+    padding: 0.35rem 0.6rem;
+    border-bottom: 1px solid rgba(196,163,90,0.08);
+    vertical-align: top;
+  }
+  tr:hover td { background: rgba(196,163,90,0.04); }
+
+  /* ── Code Blocks ── */
+  pre {
+    background: #1a1714;
+    border: 1px solid rgba(196,163,90,0.15);
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    overflow-x: auto;
+    font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
+    font-size: clamp(0.68rem, 1.6vw, 0.82rem);
+    line-height: 1.5;
+    margin: 0.75rem 0;
+    color: #b8a98a;
+    -webkit-overflow-scrolling: touch;
+  }
+  code {
+    font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
+    font-size: 0.88em;
+    background: rgba(196,163,90,0.08);
+    padding: 0.1em 0.3em;
+    border-radius: 3px;
+    color: #c4a35a;
+  }
+
+  /* ── Diagram / Grid Boxes ── */
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    margin: 0.75rem 0;
+  }
+  .grid-box {
+    background: rgba(196,163,90,0.04);
+    border: 1px solid rgba(196,163,90,0.12);
+    border-radius: 6px;
+    padding: 0.75rem;
+  }
+  .grid-box h4 {
+    color: #c4a35a;
+    font-size: 0.85rem;
+    margin-bottom: 0.3rem;
+    font-weight: 600;
+  }
+  .grid-box p {
+    font-size: 0.82rem;
+    margin-bottom: 0;
+  }
+
+  /* ── Quadrant Diagram ── */
+  .quadrant {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto;
+    gap: 0;
+    margin: 1rem 0;
+    border: 1px solid rgba(196,163,90,0.2);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .quadrant .q {
+    padding: 0.75rem;
+    font-size: 0.82rem;
+  }
+  .quadrant .q:nth-child(1) { border-right: 1px solid rgba(196,163,90,0.15); border-bottom: 1px solid rgba(196,163,90,0.15); }
+  .quadrant .q:nth-child(2) { border-bottom: 1px solid rgba(196,163,90,0.15); }
+  .quadrant .q:nth-child(3) { border-right: 1px solid rgba(196,163,90,0.15); }
+  .quadrant .q-label {
+    display: block;
+    font-weight: 600;
+    color: #c4a35a;
+    font-size: 0.75rem;
+    margin-bottom: 0.25rem;
+  }
+
+  /* ── Gradient Bar ── */
+  .gradient-bar {
+    height: 6px;
+    border-radius: 3px;
+    background: linear-gradient(to right, #3a2a10, #6b4f20, #c4a35a, #e8d090);
+    margin: 0.5rem 0;
+    position: relative;
+  }
+  .gradient-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.7rem;
+    color: #8a7e68;
+  }
+
+  /* ── Stat Badge ── */
+  .stat-group { margin-bottom: 0.75rem; }
+  .stat-group-title {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: #c4a35a;
+    margin-bottom: 0.35rem;
+    font-weight: 600;
+  }
+  .stats-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+  .stat-badge {
+    background: rgba(196,163,90,0.08);
+    border: 1px solid rgba(196,163,90,0.15);
+    border-radius: 4px;
+    padding: 0.2rem 0.5rem;
+    font-size: 0.72rem;
+    font-family: 'SF Mono', 'Menlo', monospace;
+    color: #b8a98a;
+  }
+
+  /* ── Flow Arrows ── */
+  .flow {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin: 0.75rem 0;
+  }
+  .flow-step {
+    background: rgba(196,163,90,0.04);
+    border: 1px solid rgba(196,163,90,0.12);
+    padding: 0.5rem 0.75rem;
+    font-size: 0.82rem;
+  }
+  .flow-step:first-child { border-radius: 6px 6px 0 0; }
+  .flow-step:last-child { border-radius: 0 0 6px 6px; }
+  .flow-arrow {
+    text-align: center;
+    color: #c4a35a;
+    font-size: 0.9rem;
+    line-height: 1.2;
+    padding: 0.15rem;
+  }
+
+  /* ── Slide Counter ── */
+  #slide-counter {
+    position: fixed;
+    bottom: 1rem;
+    right: 1rem;
+    font-family: 'SF Mono', 'Menlo', monospace;
+    font-size: 0.7rem;
+    color: #8a7e68;
+    background: rgba(15,13,11,0.85);
+    padding: 0.3rem 0.6rem;
+    border-radius: 4px;
+    border: 1px solid rgba(196,163,90,0.1);
+    z-index: 100;
+    backdrop-filter: blur(4px);
+  }
+
+  /* ── Nav Hint ── */
+  #nav-hint {
+    position: fixed;
+    bottom: 1rem;
+    left: 1rem;
+    font-size: 0.65rem;
+    color: #5a5040;
+    z-index: 100;
+  }
+
+  /* ── Separator ── */
+  .sep {
+    width: 40px;
+    height: 1px;
+    background: #c4a35a;
+    opacity: 0.3;
+    margin: 1rem 0;
+  }
+
+  /* ── Title Slide Special ── */
+  .title-slide {
+    text-align: center;
+    justify-content: center;
+    align-items: center;
+  }
+  .title-slide .slide-inner { text-align: center; }
+  .title-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.3;
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 600px) {
+    .slide { padding: 1.5rem 1rem; }
+    .grid-2 { grid-template-columns: 1fr; }
+    pre { font-size: 0.65rem; padding: 0.5rem; }
+    table { font-size: 0.68rem; }
+    th, td { padding: 0.25rem 0.4rem; }
+    .stats-list { gap: 0.25rem; }
+    .stat-badge { font-size: 0.65rem; padding: 0.15rem 0.35rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ==================== SECTION 1: OVERVIEW ==================== -->
+
+<!-- Slide 1: Title -->
+<section class="slide title-slide" id="s1">
+<div class="slide-inner">
+  <div class="title-icon">&#x2726;</div>
+  <h1>Loom</h1>
+  <p class="tagline">"A living world that runs whether you're watching or not."</p>
+  <div class="sep" style="margin: 1rem auto;"></div>
+  <p class="subtitle">AI RPG Design Review &mdash; April 2026</p>
+  <p class="subtitle">Multi-model architecture &middot; Persistent world &middot; Real consequences</p>
+  <p class="subtitle" style="margin-top: 1.5rem; color: #5a5040;">23 files &middot; ~8,200 lines &middot; Prototype stage</p>
+</div>
+</section>
+
+<!-- Slide 2: What Makes It Different -->
+<section class="slide" id="s2">
+<div class="slide-inner">
+  <div class="section-label">Overview</div>
+  <h2>What Makes It Different</h2>
+  <p>Every AI game on the market uses one model for everything. Narrator, villain, shopkeeper, love interest &mdash; all the same voice. No real opposition, no consequences, no world that moves without you.</p>
+  <div class="table-wrap">
+  <table>
+    <tr><th>Feature</th><th>AI Dungeon / Others</th><th>Loom</th></tr>
+    <tr><td>Architecture</td><td>Single model, one voice</td><td><strong>8+ specialized models</strong></td></tr>
+    <tr><td>NPCs</td><td>All sound the same</td><td><strong>Model tier scales with character depth</strong></td></tr>
+    <tr><td>Opposition</td><td>No real antagonist</td><td><strong>Dedicated reasoning model (o4-mini)</strong></td></tr>
+    <tr><td>World</td><td>Static, player-centric</td><td><strong>Director moves world daily</strong></td></tr>
+    <tr><td>Combat</td><td>Model-decided outcomes</td><td><strong>Python simulation, model narrates</strong></td></tr>
+    <tr><td>Consequences</td><td>Minimal</td><td><strong>Reputation spreads, NPCs remember, you die</strong></td></tr>
+    <tr><td>Social</td><td>Click "Persuade [DC 15]"</td><td><strong>Your actual words are the mechanic</strong></td></tr>
+  </table>
+  </div>
+  <p class="subtitle" style="margin-top: 0.5rem;">AI roleplay market: ~$500M-1.2B (2025), projected $8.9B by 2033. Nobody has multi-model adversarial architecture.</p>
+</div>
+</section>
+
+<!-- Slide 3: Core Philosophy -->
+<section class="slide" id="s3">
+<div class="slide-inner">
+  <div class="section-label">Overview</div>
+  <h2>Core Philosophy</h2>
+  <p class="tagline">Models speak. Python thinks.</p>
+  <p>Every decision in this architecture follows one rule: <strong>AI models generate language, Python runs the simulation.</strong> No model ever decides if you live or die.</p>
+  <div class="sep"></div>
+  <h3>7 Design Principles</h3>
+  <ol>
+    <li><strong>Models do reasoning, Python does simulation</strong></li>
+    <li><strong>The world moves without you</strong> &mdash; consequences compound</li>
+    <li><strong>Characters scale model tier</strong> with dramatic importance</li>
+    <li><strong>NPCs only know what they'd plausibly know</strong></li>
+    <li><strong>The system is genre-agnostic</strong> &mdash; the player decides the story</li>
+    <li><strong>Real stakes</strong> &mdash; you can die, fail, lose, be betrayed</li>
+    <li><strong>Every playthrough is a new generated world</strong></li>
+  </ol>
+</div>
+</section>
+
+<!-- Slide 4: Multi-Model Architecture -->
+<section class="slide" id="s4">
+<div class="slide-inner">
+  <div class="section-label">Overview</div>
+  <h2>The Multi-Model Architecture</h2>
+  <p>Different jobs get different models. The player never knows which is running.</p>
+  <div class="table-wrap">
+  <table>
+    <tr><th>Role</th><th>Model</th><th>$/call</th><th>When</th></tr>
+    <tr><td><strong>World Builder</strong></td><td>Opus / GPT-5</td><td>$0.30-0.50</td><td>1x at game start</td></tr>
+    <tr><td><strong>Character Author</strong></td><td>Opus</td><td>$0.03-0.10</td><td>NPC first promotion</td></tr>
+    <tr><td><strong>Narrator</strong></td><td>Sonnet</td><td>$0.005-0.02</td><td>Every turn</td></tr>
+    <tr><td><strong>Interpreter</strong></td><td>Flash / Gemma 4</td><td>$0.001</td><td>Every turn</td></tr>
+    <tr><td><strong>Director</strong></td><td>Gemini 3.1 Pro</td><td>$0.005-0.01</td><td>1x per game day</td></tr>
+    <tr><td><strong>Antagonist</strong></td><td>o4-mini (reasoning)</td><td>$0.01-0.03</td><td>1x per game day</td></tr>
+    <tr><td><strong>NPC (bottom 60%)</strong></td><td>Gemma 4 / Flash Lite</td><td>$0.001</td><td>Dialogue</td></tr>
+    <tr><td><strong>NPC (next 25%)</strong></td><td>Gemini Flash</td><td>$0.002-0.005</td><td>Dialogue</td></tr>
+    <tr><td><strong>NPC (top 15%)</strong></td><td>Sonnet</td><td>$0.01-0.04</td><td>Dialogue</td></tr>
+    <tr><td><strong>NPC (top 1%)</strong></td><td>Opus</td><td>$0.05-0.10</td><td>Rare, world-shaping</td></tr>
+    <tr><td><strong>Companion</strong></td><td>Sonnet / GPT-5.4</td><td>$0.01-0.03</td><td>Conversation, combat</td></tr>
+    <tr><td><strong>Summarizer</strong></td><td>Flash / Gemma 4</td><td>$0.001</td><td>Background</td></tr>
+  </table>
+  </div>
+</div>
+</section>
+
+<!-- ==================== SECTION 2: THE WORLD ==================== -->
+
+<!-- Slide 5: World Generation Pipeline -->
+<section class="slide" id="s5">
+<div class="slide-inner">
+  <div class="section-label">The World</div>
+  <h2>World Generation Pipeline</h2>
+  <p><strong>Opus creates meaning.</strong> Python creates space.</p>
+  <div class="grid-2">
+    <div class="grid-box">
+      <h4>Step 1: Opus</h4>
+      <p>One big call (~$0.30-0.50). Returns 5,000-10,000 tokens of structured JSON: continents, regions, cities, factions, history, philosophy, 30-50 named characters with fate scores, an antagonist, intellectual traditions.</p>
+    </div>
+    <div class="grid-box">
+      <h4>Step 2: Python</h4>
+      <p>Perlin noise terrain. Cities placed on valid coordinates (trade ports on coasts, etc.). Roads generated. Travel times calculated. NPC stat blocks rolled for all unnamed characters. No model calls.</p>
+    </div>
+  </div>
+  <div class="grid-2">
+    <div class="grid-box">
+      <h4>Step 3: Character Author</h4>
+      <p>Opus writes system prompts for high-fate characters (30-50 calls). Batched during loading screen.</p>
+    </div>
+    <div class="grid-box">
+      <h4>Step 4: Visual Assets</h4>
+      <p>World map, NPC portraits, region art. ~30-40 image API calls batched while player reads lore text.</p>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- Slide 6: Spatial Tree -->
+<section class="slide" id="s6">
+<div class="slide-inner">
+  <div class="section-label">The World</div>
+  <h2>The Spatial Tree</h2>
+  <p>The world is a <strong>hierarchical tree</strong>, not a flat list. Generated top-down, on demand.</p>
+  <pre>World
+  Continent (4-7)
+    Region (3-5 per continent)
+      City (2-8 per region)
+        District (2-5 per city)
+          Building (10-50 per district)
+            Floor (1-5 per building)
+              Room (1-10 per floor)</pre>
+  <div class="table-wrap">
+  <table>
+    <tr><th>Level</th><th>When Generated</th><th>How</th><th>Cost</th></tr>
+    <tr><td>World + Continents + Regions + Cities</td><td>Game start</td><td>One Opus call</td><td>~$0.30</td></tr>
+    <tr><td>City details (buildings, districts)</td><td>First visit</td><td>Python + weighted random</td><td>~$0.01</td></tr>
+    <tr><td>Building interiors</td><td>When you enter</td><td>Python templates</td><td>Free</td></tr>
+    <tr><td>Room contents + NPCs</td><td>When you enter</td><td>Python query</td><td>Free</td></tr>
+  </table>
+  </div>
+  <p>Every entity has <strong>one location field</strong>: a node ID. <code>npc.location = "tessam_ironDrum_f2_backroom"</code>. Proximity is a query, not a stat.</p>
+</div>
+</section>
+
+<!-- Slide 7: The Director -->
+<section class="slide" id="s7">
+<div class="slide-inner">
+  <div class="section-label">The World</div>
+  <h2>The Director</h2>
+  <p>One cheap model call per in-game day. Reads compressed world state. Outputs 0-5 structured events. <strong>This is the magic.</strong></p>
+  <h3>What The Director Does</h3>
+  <ul>
+    <li>Moves NPCs between locations</li>
+    <li>Advances faction plans (the army marches, the treaty falls apart)</li>
+    <li>Spreads consequences (the merchant you cheated is one town closer)</li>
+    <li>Spreads reputation (you arrive somewhere new, the bartender already looks nervous)</li>
+    <li>Generates ambient events (a festival, a plague, a shipwreck)</li>
+  </ul>
+  <h3>Example Output</h3>
+  <pre>{
+  "day": 14,
+  "events": [
+    {"type": "npc_movement",
+     "npc_id": "npc_102",
+     "to": "tessam_docks",
+     "reason": "seeking revenge on player"},
+    {"type": "faction_advance",
+     "faction": "northern_alliance",
+     "action": "siege of Kael's Pass begins",
+     "world_effect": "trade route closed"},
+    {"type": "reputation_spread",
+     "region": "shardcoast",
+     "content": "a stranger killed three men in the Iron Drum",
+     "sentiment": "fear"}
+  ]
+}</pre>
+</div>
+</section>
+
+<!-- Slide 8: Dungeons & Items -->
+<section class="slide" id="s8">
+<div class="slide-inner">
+  <div class="section-label">The World</div>
+  <h2>Items, Tiers &amp; Discovery</h2>
+  <h3>Item Tiers</h3>
+  <div class="table-wrap">
+  <table>
+    <tr><th>Tier</th><th>Multiplier</th><th>Example</th></tr>
+    <tr><td>0 &mdash; Improvised</td><td>0.3x</td><td>Chair leg, broken bottle</td></tr>
+    <tr><td>1 &mdash; Common</td><td>1.0x</td><td>Iron sword, leather armor</td></tr>
+    <tr><td>2 &mdash; Quality</td><td>1.8x</td><td>Steel masterwork, minor enchantment</td></tr>
+    <tr><td>3 &mdash; Legendary</td><td>4.0x</td><td>Named weapons, ancient craft</td></tr>
+    <tr><td>4 &mdash; Mythic</td><td>15.0x</td><td>God-forged, world artifacts, one-of-a-kind</td></tr>
+  </table>
+  </div>
+  <h3>Entity Power Tiers</h3>
+  <div class="table-wrap">
+  <table>
+    <tr><th>Tier</th><th>Multiplier</th><th>Examples</th></tr>
+    <tr><td>0 &mdash; Animals</td><td>0.5x</td><td>Wolves, dogs</td></tr>
+    <tr><td>1 &mdash; Human</td><td>1.0x</td><td>The default</td></tr>
+    <tr><td>2 &mdash; Exceptional</td><td>2.5x</td><td>Legendary warrior, minor mage</td></tr>
+    <tr><td>3 &mdash; Superhuman</td><td>6.0x</td><td>Master mage, giant, troll</td></tr>
+    <tr><td>4 &mdash; Mythic</td><td>25.0x</td><td>Dragon, demigod</td></tr>
+    <tr><td>5 &mdash; Divine</td><td>100.0x</td><td>God, world-ending force</td></tr>
+  </table>
+  </div>
+  <p>Items have lore: <code>history</code>, <code>rumor_text</code>, <code>guarded_by</code>, <code>known_by</code>. Discovery pipeline: <strong>tavern rumor &rarr; scholar knowledge &rarr; dungeon exploration &rarr; artifact</strong>.</p>
+</div>
+</section>
+
+<!-- ==================== SECTION 3: CHARACTERS ==================== -->
+
+<!-- Slide 9: The Stat Block -->
+<section class="slide" id="s9">
+<div class="slide-inner">
+  <div class="section-label">Characters</div>
+  <h2>The Stat Block</h2>
+  <p>Every character (NPC and player) has <strong>22 numerical stats + 8 contextual/meta fields = 30 total</strong>.</p>
+  <div class="stat-group">
+    <div class="stat-group-title">Physical (7)</div>
+    <div class="stats-list">
+      <span class="stat-badge">strength</span>
+      <span class="stat-badge">toughness</span>
+      <span class="stat-badge">agility</span>
+      <span class="stat-badge">health</span>
+      <span class="stat-badge">height_cm</span>
+      <span class="stat-badge">weight_kg</span>
+      <span class="stat-badge">attractiveness</span>
+    </div>
+  </div>
+  <div class="stat-group">
+    <div class="stat-group-title">Mental (7)</div>
+    <div class="stats-list">
+      <span class="stat-badge">intelligence</span>
+      <span class="stat-badge">depth</span>
+      <span class="stat-badge">wisdom</span>
+      <span class="stat-badge">perception</span>
+      <span class="stat-badge">willpower</span>
+      <span class="stat-badge">education</span>
+      <span class="stat-badge">creativity</span>
+    </div>
+  </div>
+  <div class="stat-group">
+    <div class="stat-group-title">Social (8)</div>
+    <div class="stats-list">
+      <span class="stat-badge">charisma</span>
+      <span class="stat-badge">empathy</span>
+      <span class="stat-badge">courage</span>
+      <span class="stat-badge">honesty</span>
+      <span class="stat-badge">humor</span>
+      <span class="stat-badge">stubbornness</span>
+      <span class="stat-badge">ambition</span>
+      <span class="stat-badge">loyalty</span>
+    </div>
+  </div>
+  <div class="stat-group">
+    <div class="stat-group-title">Contextual + Meta (8)</div>
+    <div class="stats-list">
+      <span class="stat-badge">occupation</span>
+      <span class="stat-badge">social_class</span>
+      <span class="stat-badge">wealth</span>
+      <span class="stat-badge">faction</span>
+      <span class="stat-badge">faction_loyalty</span>
+      <span class="stat-badge">temperament</span>
+      <span class="stat-badge">fate (0.0-1.0)</span>
+      <span class="stat-badge">age</span>
+    </div>
+  </div>
+  <p>Base distribution: <code>mean = 42, std = 16</code>. 68% of people score 26-58. Only 0.1% score above 90.</p>
+</div>
+</section>
+
+<!-- Slide 10: Fate vs Depth -->
+<section class="slide" id="s10">
+<div class="slide-inner">
+  <div class="section-label">Characters</div>
+  <h2>Fate vs Depth</h2>
+  <p>These are <strong>independent axes</strong>. Fate = narrative importance. Depth = inner life richness. They don't correlate.</p>
+  <div class="quadrant">
+    <div class="q">
+      <span class="q-label">High Fate, High Depth</span>
+      The hidden queen. World-shaping AND philosophically rich. Opus prompt, 1500+ tokens. Rare.
+    </div>
+    <div class="q">
+      <span class="q-label">Low Fate, High Depth</span>
+      The washerwoman who stops you cold. Rich inner life, no narrative importance. <strong>The moment that feels like literature.</strong>
+    </div>
+    <div class="q">
+      <span class="q-label">High Fate, Low Depth</span>
+      The brave farm boy. Central to the plot, not especially interesting to talk to. Flash model, short prompts.
+    </div>
+    <div class="q">
+      <span class="q-label">Low Fate, Low Depth</span>
+      Background scenery. The 40 people in the bar. Pure data, no model call. They're dockworkers arguing over dice.
+    </div>
+  </div>
+  <p><strong>Fate reshapes the stat distribution</strong> &mdash; pulling the mean upward and widening variance. A fate-touched person has higher ceiling AND more variance. Spikes and valleys.</p>
+  <div class="table-wrap">
+  <table>
+    <tr><th>Fate</th><th>Mean</th><th>Std</th><th>Feel</th></tr>
+    <tr><td>0.0</td><td>42</td><td>16</td><td>Ordinary person</td></tr>
+    <tr><td>0.4</td><td>54</td><td>22</td><td>Noticeable. Good at something.</td></tr>
+    <tr><td>0.8</td><td>66</td><td>29</td><td>Remarkable. Multiple high stats.</td></tr>
+    <tr><td>1.0</td><td>72</td><td>24</td><td>Once per game. Stats rarely below 50.</td></tr>
+  </table>
+  </div>
+</div>
+</section>
+
+<!-- Slide 11: Continuous Character Scaling -->
+<section class="slide" id="s11">
+<div class="slide-inner">
+  <div class="section-label">Characters</div>
+  <h2>Continuous Character Scaling</h2>
+  <p>No hard tiers. Everything scales smoothly with the <strong>depth score</strong>.</p>
+  <pre>depth_score = depth*0.30 + intelligence*0.20 + wisdom*0.15
+            + empathy*0.15 + creativity*0.10 + education*0.10</pre>
+  <pre>prompt_tokens = 40 + (depth_score * 14)    // 110 to 1440 tokens
+max_response_words = 15 + (depth_score * 1.5) // 30 to 165 words</pre>
+  <div class="gradient-bar"></div>
+  <div class="gradient-labels">
+    <span>Score 5: "Yeah."</span>
+    <span>Score 40: Short paragraph</span>
+    <span>Score 80: Makes you think</span>
+    <span>Score 95: Complete human</span>
+  </div>
+  <h3>Model Selection (Fuzzy Boundaries)</h3>
+  <pre>effective_score = depth_score + (fate * 10)
+roll = effective_score + random.uniform(-8, 8)
+
+if roll &lt; 30:  flash_lite    ~55% of NPCs
+elif roll &lt; 52: flash         ~25%
+elif roll &lt; 72: sonnet        ~13%
+elif roll &lt; 88: sonnet_rich   ~5%
+else:           opus          ~2%</pre>
+  <p>A depth-28 NPC has a ~15% chance of rolling into Flash territory. Sometimes an ordinary person surprises you. <strong>The randomness IS the realism.</strong></p>
+</div>
+</section>
+
+<!-- Slide 12: The Character Author -->
+<section class="slide" id="s12">
+<div class="slide-inner">
+  <div class="section-label">Characters</div>
+  <h2>The Character Author</h2>
+  <p>Opus reads the full stat block and writes a soul. Not a lookup table. <strong>It translates numbers into vibes.</strong></p>
+  <div class="grid-2">
+    <div class="grid-box">
+      <h4>Depth ~25 (110 tokens)</h4>
+      <p style="font-style: italic; font-size: 0.8rem;">"Renn, dockworker. Speaks in short declaratives. Doesn't think much about why things are the way they are. Loyal to his crew. If you ask him about the war, he shrugs. Gets irritated if pressed."</p>
+    </div>
+    <div class="grid-box">
+      <h4>Depth ~80 (1160 tokens)</h4>
+      <p style="font-style: italic; font-size: 0.8rem;">"Dalla Cairn, former academy scholar turned herbalist. Speaks precisely but warmly &mdash; she chose simple words after years of jargon. Carries a guilt she won't name: her research was used to justify the northern purge. Notices emotional undercurrents others miss. Will test you with silence before deciding if you're worth her real thoughts. Deeply lonely but won't admit it."</p>
+    </div>
+  </div>
+  <div class="sep"></div>
+  <p>Opus thinks in qualitative bands:</p>
+  <ul>
+    <li><strong>0-15:</strong> Thinks in simple terms. Present-focused.</li>
+    <li><strong>30-50:</strong> Real personality. Might surprise you once.</li>
+    <li><strong>50-70:</strong> Genuinely thoughtful. Has examined their life.</li>
+    <li><strong>85-100:</strong> Changes how you think about something. A voice unlike anyone else.</li>
+  </ul>
+</div>
+</section>
+
+<!-- Slide 13: Character Dossier -->
+<section class="slide" id="s13">
+<div class="slide-inner">
+  <div class="section-label">Characters</div>
+  <h2>Character Dossier Concept</h2>
+  <p>High-fate characters aren't just stat blocks. They're real entities with dossiers.</p>
+  <div class="grid-box" style="margin: 0.75rem 0;">
+    <h4>Example: Dalla Cairn (fate 0.72)</h4>
+    <div class="table-wrap">
+    <table>
+      <tr><td><strong>Occupation</strong></td><td>Herbalist (former academy scholar)</td></tr>
+      <tr><td><strong>Temperament</strong></td><td>Melancholy</td></tr>
+      <tr><td><strong>Key Stats</strong></td><td>depth 82, intelligence 71, empathy 88, education 65, courage 38</td></tr>
+      <tr><td><strong>Backstory</strong></td><td>Left the Academy of Vael after her research was weaponized. Lives alone on the coast.</td></tr>
+      <tr><td><strong>Secret</strong></td><td>She still has the research. Hidden in a false wall. She knows it's valuable.</td></tr>
+      <tr><td><strong>Contradiction</strong></td><td>Perceptive about others but blind to her own loneliness.</td></tr>
+      <tr><td><strong>Trust Trigger</strong></td><td>Patient listeners. People who ask why, not what.</td></tr>
+      <tr><td><strong>Anger Trigger</strong></td><td>Being treated as useful rather than real.</td></tr>
+      <tr><td><strong>Knowledge Tags</strong></td><td>[academy, herbal_medicine, northern_purge, skeptic]</td></tr>
+    </table>
+    </div>
+  </div>
+  <p>Cheaper models <em>perform</em> the prompt Opus wrote. The player never knows. Conversations just <strong>feel more alive when they matter</strong>.</p>
+</div>
+</section>
+
+<!-- Slide 14: NPC Lifecycle -->
+<section class="slide" id="s14">
+<div class="slide-inner">
+  <div class="section-label">Characters</div>
+  <h2>NPC Lifecycle</h2>
+  <div class="flow">
+    <div class="flow-step"><strong>Tier 0 &mdash; Stat Block (Dormant)</strong><br>Pure data. No model call. ~22 stats, randomly generated. The 40 people in a bar. Scenery.</div>
+    <div class="flow-arrow">&darr; player talks to them</div>
+    <div class="flow-step"><strong>Tier 1 &mdash; Active NPC (Promoted)</strong><br>One model call generates a 200-500 token context prompt consistent with stats and local lore. Now they're a person.</div>
+    <div class="flow-arrow">&darr; player walks away</div>
+    <div class="flow-step"><strong>Demoted back to Tier 0</strong><br>But with flags: <code>["met_player", "got_punched", "holds_grudge"]</code>. Cheap to store. Meaningful later.</div>
+    <div class="flow-arrow">&darr; dramatic importance rises</div>
+    <div class="flow-step"><strong>Tier 2+ &mdash; Dramatic Character / Companion</strong><br>Full backstory, secrets, contradictions. 800-1500 token Opus-authored prompts. Can become companion.</div>
+  </div>
+  <p>Companions can <strong>refuse orders, leave if trust drops, and die permanently</strong>. Their death is always narrated with weight.</p>
+</div>
+</section>
+
+<!-- ==================== SECTION 4: COMBAT ==================== -->
+
+<!-- Slide 15: Auto-Resolve Combat -->
+<section class="slide" id="s15">
+<div class="slide-inner">
+  <div class="section-label">Combat</div>
+  <h2>Auto-Resolve, Not Turn-Based</h2>
+  <p>The player doesn't click "attack" repeatedly. They decide to fight. <strong>Python resolves the entire encounter instantly.</strong> Sonnet writes the scene.</p>
+  <div class="flow">
+    <div class="flow-step"><strong>Player decides to fight</strong><br><em>"I punch the bartender"</em></div>
+    <div class="flow-arrow">&darr;</div>
+    <div class="flow-step"><strong>Interpreter</strong> (Flash) parses intent<br><code>{"action": "combat", "target": "npc_bartender", "method": "punch"}</code></div>
+    <div class="flow-arrow">&darr;</div>
+    <div class="flow-step"><strong>Python Stat Engine</strong> resolves instantly<br>CPR calculation, weapon-armor matrix, numbers advantage, randomness</div>
+    <div class="flow-arrow">&darr;</div>
+    <div class="flow-step"><strong>Narrator</strong> (Sonnet) writes the scene<br>Narration length scales with drama. Decisive victory = 2 paragraphs. Companion death = full page.</div>
+  </div>
+  <p><strong>Minimum calls per turn:</strong> 2 (interpreter + narrator). Combat is Python + Sonnet. No combat model needed.</p>
+</div>
+</section>
+
+<!-- Slide 16: Combat Math -->
+<section class="slide" id="s16">
+<div class="slide-inner">
+  <div class="section-label">Combat</div>
+  <h2>The Combat Math</h2>
+  <h3>Combatant Power Rating (CPR)</h3>
+  <pre>CPR = (STR * 0.25 + AGI * 0.25 + TGH * 0.20
+     + CRG * 0.10 + PER * 0.10 + WIL * 0.10)
+     * weapon_mult * armor_mult</pre>
+  <h3>Weapon-Armor Matrix</h3>
+  <div class="table-wrap">
+  <table>
+    <tr><th></th><th>None</th><th>Leather</th><th>Chain</th><th>Plate</th></tr>
+    <tr><td><strong>Unarmed</strong></td><td>1.0</td><td>0.6</td><td>0.3</td><td>0.15</td></tr>
+    <tr><td><strong>Dagger</strong></td><td>1.0</td><td>0.8</td><td>0.4</td><td>0.2</td></tr>
+    <tr><td><strong>Long sword</strong></td><td>1.0</td><td>0.95</td><td>0.7</td><td>0.5</td></tr>
+    <tr><td><strong>2H sword</strong></td><td>1.0</td><td>1.0</td><td>0.8</td><td>0.6</td></tr>
+    <tr><td><strong>Mace</strong></td><td>0.9</td><td>0.95</td><td>1.0</td><td>0.85</td></tr>
+    <tr><td><strong>Bow</strong></td><td>1.0</td><td>0.85</td><td>0.5</td><td>0.3</td></tr>
+  </table>
+  </div>
+  <h3>Numbers Advantage (Log2 Scaling)</h3>
+  <pre>ratio = your_side / their_side
+bonus = 1 + log2(ratio) * 0.4
+// 2v1 = 1.4x, 3v1 = 1.63x, 5v1 = 1.93x</pre>
+  <p>Final step: <strong>+/-20% randomness</strong>. Then margin = (player_roll - enemy_roll) / total.</p>
+</div>
+</section>
+
+<!-- Slide 17: Decision Points -->
+<section class="slide" id="s17">
+<div class="slide-inner">
+  <div class="section-label">Combat</div>
+  <h2>Decision Points</h2>
+  <p>When margin is within <strong>&plusmn;0.08</strong>, the game pauses and asks what you do.</p>
+  <div class="grid-box" style="margin: 0.75rem 0;">
+    <h4>Margin Close</h4>
+    <p><em>"The fight could go either way. He has you pinned but is tiring. What do you do?"</em></p>
+    <p style="font-size: 0.8rem;">Clever/tactical choice: +0.10 to +0.15 margin. Reckless: random(-0.10, +0.15). Passive/pleading: -0.05.</p>
+  </div>
+  <div class="grid-box" style="margin: 0.75rem 0;">
+    <h4>Companion Endangered</h4>
+    <p><em>"Kael is about to take a killing blow. You can intervene but it leaves you exposed."</em></p>
+    <p style="font-size: 0.8rem;">Save companion: they live, you take automatic injury. Self-preservation: companion makes their own death roll.</p>
+  </div>
+  <div class="grid-box" style="margin: 0.75rem 0;">
+    <h4>Player Near Death</h4>
+    <p><em>"You're losing badly. Blood in your eyes. Flee, surrender, or fight to the death."</em></p>
+    <p style="font-size: 0.8rem;">Flee: agility check. Surrender: consequences depend on enemy. Fight: final death roll with small willpower bonus.</p>
+  </div>
+</div>
+</section>
+
+<!-- Slide 18: Power Tiers & The Math -->
+<section class="slide" id="s18">
+<div class="slide-inner">
+  <div class="section-label">Combat</div>
+  <h2>Power Tiers</h2>
+  <p>Can humans beat a dragon? <strong>Let's do the math.</strong></p>
+  <div class="grid-2">
+    <div class="grid-box">
+      <h4>Entity Tiers</h4>
+      <p>Human: 1x<br>Exceptional warrior: 2.5x<br>Giant/troll: 6x<br>Dragon: 25x<br>Divine: 100x</p>
+    </div>
+    <div class="grid-box">
+      <h4>Item Tiers</h4>
+      <p>Common: 1x<br>Quality: 1.8x<br>Legendary: 4x<br>Mythic: 15x</p>
+    </div>
+  </div>
+  <h3>Example: 12 Humans vs Dragon</h3>
+  <pre>Dragon CPR: 80 (base) * 25.0 (tier) = 2000
+
+12 humans with legendary swords:
+  Per soldier: 65 (trained) * 1.15 (long sword) * 4.0 (legendary) = 299
+  Total: 299 * 12 = 3588
+  Numbers bonus: 1 + log2(12) * 0.4 = 2.43x... but dragon is ONE target
+  Effective: ~3588 * 1.0 (no numbers bonus against single target)
+
+Ratio: 3588 / 2000 = 1.79 in humans' favor
+With ±20% randomness: possible range 1.19x to 2.68x
+Verdict: FAVORED but not guaranteed. Roll of the dice.</pre>
+  <p>The math is transparent and feels right. Legendary gear matters. Numbers matter. Nothing is certain.</p>
+</div>
+</section>
+
+<!-- ==================== SECTION 5: SOCIAL SYSTEMS ==================== -->
+
+<!-- Slide 19: Persuasion -->
+<section class="slide" id="s19">
+<div class="slide-inner">
+  <div class="section-label">Social Systems</div>
+  <h2>Persuasion</h2>
+  <p><strong>No persuasion stat.</strong> The player's actual words are the mechanic.</p>
+  <h3>4-Dimension Evaluation</h3>
+  <div class="table-wrap">
+  <table>
+    <tr><th>Dimension</th><th>Weight</th><th>What It Measures</th></tr>
+    <tr><td><strong>Relevance</strong></td><td>35%</td><td>Does this address what the NPC cares about?</td></tr>
+    <tr><td><strong>Coherence</strong></td><td>25%</td><td>Is the argument logically sound?</td></tr>
+    <tr><td><strong>Tone Match</strong></td><td>25%</td><td>Appropriate for this NPC's personality?</td></tr>
+    <tr><td><strong>Info Validity</strong></td><td>15%</td><td>Does the player actually know what they claim?</td></tr>
+  </table>
+  </div>
+  <h3>NPC Resistance</h3>
+  <pre>resistance = (stubbornness * 0.40 + willpower * 0.30
+            + (100 - empathy) * 0.15 + faction_loyalty * 0.15) / 100
+
+delta = (argument_strength - resistance + trust_bonus) * 20
+// Typical range: -12 to +18 per exchange</pre>
+  <p>Bluffing penalty: if you claim info you don't have and the NPC's <code>perception</code> beats your <code>charisma</code>, massive trust damage (-20).</p>
+</div>
+</section>
+
+<!-- Slide 20: Trust Over Time -->
+<section class="slide" id="s20">
+<div class="slide-inner">
+  <div class="section-label">Social Systems</div>
+  <h2>Trust Over Time</h2>
+  <p class="quote">"One brilliant sentence doesn't open every door. Ten genuine conversations do."</p>
+  <h3>Trust Effects</h3>
+  <div class="table-wrap">
+  <table>
+    <tr><th>Event</th><th>Trust Change</th></tr>
+    <tr><td>Kind words</td><td>+2 to +5</td></tr>
+    <tr><td>Helpful action</td><td>+5 to +10</td></tr>
+    <tr><td>Shared secret</td><td>+8 to +15</td></tr>
+    <tr><td>Kept promise</td><td>+10 to +20</td></tr>
+    <tr><td>Saved their life</td><td>+25 to +40</td></tr>
+    <tr><td>Lied to them (detected)</td><td>-10 to -25</td></tr>
+    <tr><td>Broke promise</td><td>-15 to -30</td></tr>
+    <tr><td>Betrayed them</td><td>-40 to -80</td></tr>
+    <tr><td>Ignored (per day, companions)</td><td>-1 to -3</td></tr>
+  </table>
+  </div>
+  <h3>Inertia at Extremes</h3>
+  <p>Trust above 70: changes reduced by 40% (hard to push from "close" to "deep bond"). Trust below 20: changes reduced by 30% (hard to rebuild once broken).</p>
+  <h3>Decay</h3>
+  <p>Companions: -0.5/day if ignored. NPCs: -0.1/day naturally. <strong>High trust (60+) doesn't decay.</strong> Real relationships persist.</p>
+</div>
+</section>
+
+<!-- Slide 21: Romance -->
+<section class="slide" id="s21">
+<div class="slide-inner">
+  <div class="section-label">Social Systems</div>
+  <h2>Romance</h2>
+  <p>Not a single stat. <strong>Four metrics</strong> that all need to reach thresholds.</p>
+  <div class="table-wrap">
+  <table>
+    <tr><th>Metric</th><th>Range</th><th>Built By</th></tr>
+    <tr><td><strong>Attraction</strong></td><td>0-100</td><td>Clever/funny words, bravery, time together</td></tr>
+    <tr><td><strong>Trust</strong></td><td>-100 to 100</td><td>Kept promises, honesty, shared danger</td></tr>
+    <tr><td><strong>Comfort</strong></td><td>0-100</td><td>Positive interactions, meals, quiet moments</td></tr>
+    <tr><td><strong>Intimacy</strong></td><td>0-100</td><td>Vulnerability shared, private conversations</td></tr>
+  </table>
+  </div>
+  <h3>Stage Progression</h3>
+  <pre>stranger → acquaintance:  any interaction
+friendly → interested:    attraction 40+, trust 35+, comfort 30+
+interested → courting:    attraction 55+, trust 50+, comfort 45+, intimacy 25+
+courting → intimate:      attraction 60+, trust 65+, comfort 60+, intimacy 50+
+intimate → partnered:     trust 80+, comfort 75+, intimacy 70+</pre>
+  <h3>Rejection Is Specific</h3>
+  <p><strong>Some NPCs will never be interested.</strong> <code>not_interested</code> is a permanent ceiling. Others reject because they're grieving, committed, or you haven't earned enough trust. The game doesn't tell you why &mdash; the NPC just doesn't reciprocate.</p>
+</div>
+</section>
+
+<!-- Slide 22: Conversations as Currency -->
+<section class="slide" id="s22">
+<div class="slide-inner">
+  <div class="section-label">Social Systems</div>
+  <h2>Conversations as Currency</h2>
+  <p>Some doors only open through knowledge.</p>
+  <div class="grid-box" style="margin: 0.75rem 0;">
+    <h4>The Guard's Brother</h4>
+    <p>You learned in the tavern that the guard's brother died in the northern campaign. You say: <em>"I heard about your brother. I'm sorry."</em></p>
+    <p style="font-size: 0.82rem; margin-top: 0.5rem;">The interpreter checks: does the player actually have this knowledge (tracked in <code>player.knowledge_log</code>)? If yes: trust shift. If bluffing: suspicion.</p>
+  </div>
+  <p>The game tracks every piece of information you learn. Knowledge is a real resource &mdash; not just flavor text. <strong>The emotionally intelligent player has more doors open to them.</strong></p>
+  <div class="sep"></div>
+  <h3>Persuasion Thresholds</h3>
+  <div class="table-wrap">
+  <table>
+    <tr><th>Concession Level</th><th>Threshold</th></tr>
+    <tr><td>Small favor (directions, gossip)</td><td>15-30</td></tr>
+    <tr><td>Medium favor (discount, access)</td><td>40-60</td></tr>
+    <tr><td>Large favor (risk safety, betray)</td><td>70-90</td></tr>
+    <tr><td>Extreme (betray faction)</td><td>90-120</td></tr>
+    <tr><td>Impossible (violates core values)</td><td>150+</td></tr>
+  </table>
+  </div>
+</div>
+</section>
+
+<!-- ==================== SECTION 6: PLAYER EXPERIENCE ==================== -->
+
+<!-- Slide 23: Player Creation -->
+<section class="slide" id="s23">
+<div class="slide-inner">
+  <div class="section-label">Player Experience</div>
+  <h2>Player Creation</h2>
+  <p>The player inputs real traits about themselves. One Opus call maps them onto the world.</p>
+  <div class="grid-box" style="margin: 0.75rem 0;">
+    <h4>Input</h4>
+    <p style="font-style: italic;">"24, finance degree, into philosophy, Canadian, 5'10, 165 lbs, former wrestler, anxious but ambitious"</p>
+  </div>
+  <div class="grid-box" style="margin: 0.75rem 0;">
+    <h4>Output</h4>
+    <ul style="font-size: 0.85rem;">
+      <li>Finance degree &rarr; merchant guild apprenticeship</li>
+      <li>Philosophy &rarr; studied at the Academy of [world equivalent]</li>
+      <li>Wrestling &rarr; combat training, known for grappling, STR/TGH/AGI boosted</li>
+      <li>Canadian &rarr; from a northern coastal region</li>
+      <li>Anxious &rarr; higher perception, lower willpower baseline</li>
+      <li>Ambitious &rarr; high ambition stat</li>
+    </ul>
+  </div>
+  <p>The player gets a backstory that feels personal because <strong>it's them, refracted through a fantasy lens.</strong> Unique selling point no one else offers.</p>
+  <p class="subtitle">Player base stats: mean 55 (vs NPC mean 42). You're the protagonist, not a god.</p>
+</div>
+</section>
+
+<!-- Slide 24: Travel -->
+<section class="slide" id="s24">
+<div class="slide-inner">
+  <div class="section-label">Player Experience</div>
+  <h2>Travel</h2>
+  <p>Declare a destination. <strong>Fast-forward with interruptions.</strong></p>
+  <div class="table-wrap">
+  <table>
+    <tr><th>Terrain</th><th>Speed Mult</th><th>Notes</th></tr>
+    <tr><td>Road</td><td>1.0x (30 km/day)</td><td>Base speed</td></tr>
+    <tr><td>Plains</td><td>0.8x</td><td></td></tr>
+    <tr><td>Forest</td><td>0.6x</td><td></td></tr>
+    <tr><td>Mountains</td><td>0.3x</td><td></td></tr>
+    <tr><td>Swamp</td><td>0.4x</td><td></td></tr>
+    <tr><td>Desert</td><td>0.5x</td><td>Water consumption doubled</td></tr>
+    <tr><td>Horse</td><td>2.0x</td><td>60 km/day</td></tr>
+  </table>
+  </div>
+  <h3>Travel Events (Per Day Roll)</h3>
+  <p>Base chance = route danger rating. Modifiers: feared reputation (-50%), large party (-30%), road terrain (-40%), night camping (+30%).</p>
+  <ul>
+    <li>35% bandit encounter</li>
+    <li>15% traveler (merchant, pilgrim, refugee)</li>
+    <li>15% weather event</li>
+    <li>10% wildlife</li>
+    <li>10% discovery (ruins, cave)</li>
+    <li>10% companion wants to talk</li>
+    <li>5% Director-planted event</li>
+  </ul>
+  <h3>Food &amp; Starvation</h3>
+  <p>1 food/day. Hunger 60+: STR/AGI -15. Hunger 80+: all physical halved, daily 5% death roll.</p>
+</div>
+</section>
+
+<!-- Slide 25: Death & Consequences -->
+<section class="slide" id="s25">
+<div class="slide-inner">
+  <div class="section-label">Player Experience</div>
+  <h2>Death &amp; Consequences</h2>
+  <p><strong>Real stakes, telegraphed danger.</strong></p>
+  <p>If you punch a bard in a crowded bar, maybe 15 dockworkers pile on you and you're dead. Game over. <em>"Wow. That never happens in any game."</em></p>
+  <h3>The Game Warns You</h3>
+  <ul>
+    <li>Narrator telegraphs danger: <em>"The five men stop talking and stare. Their hands move under the table."</em></li>
+    <li>Companions voice concern: <em>"I don't like this. We should leave."</em></li>
+    <li>Stat engine gives escape chances &mdash; submitting to bandits costs money but you live</li>
+  </ul>
+  <h3>Death Letters</h3>
+  <p>When you die, the game generates an epilogue:</p>
+  <ul>
+    <li>The war you were fighting &mdash; did your side win?</li>
+    <li>The companion you traveled with &mdash; where did they end up?</li>
+    <li>The merchant you cheated &mdash; did they recover?</li>
+  </ul>
+  <h3>Restart as New Character</h3>
+  <p>Same world, years later. Your old character's actions are baked in. Your companion is now a bitter mercenary. Your name is a legend or a cautionary tale.</p>
+</div>
+</section>
+
+<!-- Slide 26: Ambient Life -->
+<section class="slide" id="s26">
+<div class="slide-inner">
+  <div class="section-label">Player Experience</div>
+  <h2>Ambient Life</h2>
+  <p>The world doesn't wait for the player.</p>
+  <h3>NPC-to-NPC Conversations</h3>
+  <p>Sit in a tavern and do nothing. NPCs talk <strong>to each other</strong>. Not to you.</p>
+  <p class="quote">"...told him the bridge was out but he went anyway..." and then laughter.</p>
+  <p>You can: ignore it (scenery), listen closer (might get noticed), or interject (now you're part of it). Player perception determines how much you hear.</p>
+  <h3>Philosophical Disagreement</h3>
+  <p>Two scholars argue about whether the gods are real. A soldier and priest debate the war. <strong>The game tracks which positions you endorse.</strong> NPCs with matching worldviews trust you faster.</p>
+  <h3>The Drunk Philosopher</h3>
+  <p>Every world generates one: brilliant but ruined. Alcoholic ex-professor, disgraced court advisor. Sonnet-tier minimum. Rich context drawn from real philosophical traditions mapped onto world lore. <strong>The character players tell their friends about.</strong></p>
+  <h3>Silence as a Mechanic</h3>
+  <p class="quote">"She looks at you for a long moment and says nothing."</p>
+  <p>Let the player sit in that. Most games fill every second. <strong>Silence is the most human thing a game can do.</strong></p>
+</div>
+</section>
+
+<!-- ==================== SECTION 7: CONTEXT & MEMORY ==================== -->
+
+<!-- Slide 27: Three Memory Layers -->
+<section class="slide" id="s27">
+<div class="slide-inner">
+  <div class="section-label">Context &amp; Memory</div>
+  <h2>Three Memory Layers</h2>
+  <div class="grid-box" style="margin: 0.5rem 0;">
+    <h4>Layer 1 &mdash; World State (always current JSON)</h4>
+    <p style="font-size: 0.82rem;">~500-800 tokens. Day, season, player location, health, hunger, faction standings, reputation. Updated by Python every turn. Never summarized.</p>
+  </div>
+  <div class="grid-box" style="margin: 0.5rem 0;">
+    <h4>Layer 2 &mdash; Player Action Memory (rolling, summarized)</h4>
+    <p style="font-size: 0.82rem;">~500-800 tokens. Recent turns: verbatim. Medium-term (2-3 days): compressed. Long-term: key moments only. Flagged moments (first kill, companion joined, major betrayal): <strong>never compressed</strong>. Summarizer runs every ~10 turns (Gemini Flash).</p>
+  </div>
+  <div class="grid-box" style="margin: 0.5rem 0;">
+    <h4>Layer 3 &mdash; Relationship Memory (per-NPC, sparse)</h4>
+    <p style="font-size: 0.82rem;">~100-300 tokens. Trust, attraction, flags, knowledge of player, last interaction summary. Injected <strong>only when talking to that NPC</strong>. Most NPCs have none. Companions have the most.</p>
+  </div>
+  <h3>Context Assembly Per Call</h3>
+  <pre>System prompt                ~200-500 tokens
+World state (Layer 1)        ~500-800 tokens
+Player memory (Layer 2)      ~500-800 tokens
+Scene context                ~200-400 tokens
+NPC relationship (Layer 3)   ~100-300 tokens
+Lore snippet (if triggered)  ~50-150 tokens
+──────────────────────────────────────────
+TOTAL PER CALL               ~1,500-3,000 tokens</pre>
+  <p>Fits comfortably in any model's context window.</p>
+</div>
+</section>
+
+<!-- Slide 28: Tagged Lore Retrieval -->
+<section class="slide" id="s28">
+<div class="slide-inner">
+  <div class="section-label">Context &amp; Memory</div>
+  <h2>Tagged Lore Retrieval</h2>
+  <p>NPCs have knowledge tags. Lore is injected <strong>only when relevant</strong>.</p>
+  <div class="grid-box" style="margin: 0.75rem 0;">
+    <h4>How It Works</h4>
+    <p style="font-size: 0.85rem;">A character has tags: <code>[educated, noble_family, academy_of_vael, skeptic]</code>.</p>
+    <p style="font-size: 0.85rem;">When conversation topics match their tags, the system injects a small lore snippet (50-150 tokens) into their context for that specific response.</p>
+  </div>
+  <p class="quote">"The woman at the bar doesn't mention the philosopher until you say something that triggers it. Then the system pulls lore about that philosopher into her context, and she references it naturally. Knowledge feels organic, not performative."</p>
+  <h3>Context Management Principles</h3>
+  <ul>
+    <li><strong>Trim tool outputs</strong> &mdash; if a query returns 40 fields, pass only the 5 relevant ones</li>
+    <li><strong>Structured fact extraction</strong> &mdash; pull key facts into persistent blocks, don't rely on summarization</li>
+    <li><strong>Position-aware ordering</strong> &mdash; critical info at start and end (models miss the middle)</li>
+    <li><strong>Summarize and reset</strong> when context gets stale in long sessions</li>
+  </ul>
+</div>
+</section>
+
+<!-- ==================== SECTION 8: ECONOMICS ==================== -->
+
+<!-- Slide 29: In-Game Economy -->
+<section class="slide" id="s29">
+<div class="slide-inner">
+  <div class="section-label">Economics</div>
+  <h2>In-Game Economy</h2>
+  <p>Starting wealth: 30-80 coins. Prices scale with city wealth and player reputation.</p>
+  <div class="grid-2">
+    <div class="grid-box">
+      <h4>Daily Expenses</h4>
+      <p style="font-size: 0.82rem;">
+        Poor inn: 2-4 coins<br>
+        Decent inn: 5-10 coins<br>
+        Fine inn: 15-30 coins<br>
+        Food: 3 coins/day
+      </p>
+    </div>
+    <div class="grid-box">
+      <h4>Weapons</h4>
+      <p style="font-size: 0.82rem;">
+        Dagger: 15 coins<br>
+        Long sword: 80 coins<br>
+        War axe: 90 coins<br>
+        Crossbow: 100 coins
+      </p>
+    </div>
+    <div class="grid-box">
+      <h4>Armor</h4>
+      <p style="font-size: 0.82rem;">
+        Leather: 60 coins<br>
+        Chain: 200 coins<br>
+        Plate: 750 coins<br>
+        Horse: 300 coins
+      </p>
+    </div>
+    <div class="grid-box">
+      <h4>Merchant Formula</h4>
+      <p style="font-size: 0.82rem;">
+        Trade hub: -15%<br>
+        Remote: +30%<br>
+        Dishonest merchant: +12-20%<br>
+        Respected: -10%<br>
+        Feared: -15%<br>
+        Wanted: +50%
+      </p>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- Slide 30: API Costs -->
+<section class="slide" id="s30">
+<div class="slide-inner">
+  <div class="section-label">Economics</div>
+  <h2>API Cost Breakdown</h2>
+  <p>Per session estimate: <strong>$0.70 - $2.80</strong> (2 hours, ~60 turns)</p>
+  <div class="table-wrap">
+  <table>
+    <tr><th>Component</th><th>Calls</th><th>Cost</th></tr>
+    <tr><td>Interpreter (60 turns)</td><td>60</td><td>$0.06-0.18</td></tr>
+    <tr><td>Narrator (60 turns)</td><td>60</td><td>$0.30-1.20</td></tr>
+    <tr><td>NPC conversations (~20)</td><td>20</td><td>$0.02-0.40</td></tr>
+    <tr><td>Director (~2-3 game days)</td><td>3</td><td>$0.015-0.03</td></tr>
+    <tr><td>Antagonist (~2-3 days)</td><td>3</td><td>$0.03-0.09</td></tr>
+    <tr><td>Companion chatter (~10)</td><td>10</td><td>$0.10-0.30</td></tr>
+    <tr><td>Combat narration (~3 fights)</td><td>3</td><td>$0.03-0.09</td></tr>
+    <tr><td>Summarizer (~6)</td><td>6</td><td>$0.006-0.018</td></tr>
+    <tr><td>Character promotions (~5)</td><td>5</td><td>$0.15-0.50</td></tr>
+    <tr><td><strong>Total</strong></td><td></td><td><strong>$0.70-2.80</strong></td></tr>
+  </table>
+  </div>
+  <h3>Per-Turn Costs</h3>
+  <div class="table-wrap">
+  <table>
+    <tr><th>Turn Type</th><th>Calls</th><th>Cost</th></tr>
+    <tr><td>Normal (move/look)</td><td>2</td><td>~$0.005</td></tr>
+    <tr><td>Conversation</td><td>3</td><td>~$0.01-0.03</td></tr>
+    <tr><td>Dramatic scene (2 companions + NPC)</td><td>4-5</td><td>~$0.05-0.08</td></tr>
+    <tr><td>Combat</td><td>2</td><td>~$0.01</td></tr>
+    <tr><td><strong>Stress-test ceiling</strong></td><td>5</td><td>~$0.10-0.15</td></tr>
+  </table>
+  </div>
+</div>
+</section>
+
+<!-- ==================== SECTION 9: WHAT'S BUILT ==================== -->
+
+<!-- Slide 31: The Codebase -->
+<section class="slide" id="s31">
+<div class="slide-inner">
+  <div class="section-label">What's Built</div>
+  <h2>The Codebase</h2>
+  <p>23 files, ~8,200 lines. Clean separation: <strong>engine / ai / game</strong>.</p>
+  <pre>untitled-rpg/
+  CONCEPT.md              # what and why
+  ARCHITECTURE.md         # technical blueprint
+  MECHANICS.md            # every formula, every number
+  PLAN.md                 # prompts, build order, pipeline
+  app/
+    main.py               # entry point, game loop
+    data.py               # all data models (Stats, NPC, Player, World, etc.)
+    engine/
+      stats.py            # stat generation, depth scoring
+      world.py            # spatial tree, city generation
+      npc.py              # NPC management, tier promotion/demotion
+      combat.py           # auto-resolve combat engine
+      director.py         # daily world events
+      persuasion.py       # social/persuasion evaluation
+    ai/
+      models.py           # multi-model router (tier → API call)
+      interpreter.py      # player text → structured action
+      narrator.py         # scene narration
+      character_author.py # Opus writes NPC prompts from stats
+    game/
+      loop.py             # main game loop orchestration
+      player.py           # player creation and state
+      scene.py            # scene context assembly</pre>
+</div>
+</section>
+
+<!-- Slide 32: What Works Now / What's Next -->
+<section class="slide" id="s32">
+<div class="slide-inner">
+  <div class="section-label">What's Built</div>
+  <h2>Status &amp; Roadmap</h2>
+  <h3>What Works Now</h3>
+  <ul>
+    <li>Complete stat schema (22 numerical + 8 contextual)</li>
+    <li>NPC stat generation with fate influence</li>
+    <li>Combat resolution engine (CPR, weapon-armor matrix, injuries, death)</li>
+    <li>Movement engine (local + travel)</li>
+    <li>Data models for everything: World, NPC, Player, Item, Relationship, Action, CombatOutcome</li>
+    <li>Starter world, basic game loop</li>
+    <li>4 design docs totaling ~30,000 words</li>
+  </ul>
+  <h3>Build Order</h3>
+  <div class="table-wrap">
+  <table>
+    <tr><th>Phase</th><th>What</th><th>Success Criteria</th></tr>
+    <tr><td><strong>1. The One Room</strong></td><td>World builder + interpreter + narrator + 1 NPC + input loop</td><td>Talk to one NPC for 10 min. Does it feel alive?</td></tr>
+    <tr><td><strong>2. Stat Engine</strong></td><td>Combat + companions + perception + stealth + death</td><td>Get in a fight. Does it feel cinematic?</td></tr>
+    <tr><td><strong>3. Living City</strong></td><td>Full city gen + NPC tiers + schedules + ambient life</td><td>Spend an in-game week. Do you recognize people?</td></tr>
+    <tr><td><strong>4. The World</strong></td><td>Full world gen + travel + Director + Antagonist + factions</td><td>Travel between cities. Does the journey feel real?</td></tr>
+    <tr><td><strong>5. Depth</strong></td><td>Romance + persuasion + companions + death letters + context pipeline</td><td>Emotional weight</td></tr>
+    <tr><td><strong>6. Polish</strong></td><td>Visual map + portraits + scene art + save/load + web frontend</td><td>Playable product</td></tr>
+  </table>
+  </div>
+</div>
+</section>
+
+<!-- ==================== SECTION 10: EXAMPLES & APPENDIX ==================== -->
+
+<!-- Slide 33: Example Turn Walkthrough -->
+<section class="slide" id="s33">
+<div class="slide-inner">
+  <div class="section-label">Examples</div>
+  <h2>Turn Walkthrough</h2>
+  <p>Player types: <em>"I punch the bartender"</em></p>
+  <div class="flow">
+    <div class="flow-step">
+      <strong>1. Interpreter (Flash Lite)</strong>
+      <pre style="margin: 0.4rem 0 0;">{"type": "combat", "target": "npc_bartender",
+ "manner": "sudden, aggressive",
+ "intent": "violence", "involves_combat": true}</pre>
+    </div>
+    <div class="flow-arrow">&darr;</div>
+    <div class="flow-step">
+      <strong>2. Combat Engine (Python)</strong>
+      <pre style="margin: 0.4rem 0 0;">player CPR: 55 * 0.6 (unarmed) = 33
+bartender CPR: 60 * 0.6 (unarmed) = 36
+15 dockworkers join in: total enemy CPR ~540
+margin: -0.88 → CRUSHING DEFEAT
+death_roll: 0.45 * 0.5 (player bonus) = 22.5% → near_death_choice</pre>
+    </div>
+    <div class="flow-arrow">&darr;</div>
+    <div class="flow-step">
+      <strong>3. Decision Point</strong><br>
+      <em>"You're on the ground. Three men have your arms. The bartender wipes blood from his lip. What do you do?"</em>
+    </div>
+    <div class="flow-arrow">&darr;</div>
+    <div class="flow-step">
+      <strong>4. Narrator (Sonnet)</strong><br>
+      Writes the scene. Visceral, ugly, brief. Conveys the outcome Python determined.
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- Slide 34: Example NPC -->
+<section class="slide" id="s34">
+<div class="slide-inner">
+  <div class="section-label">Examples</div>
+  <h2>Example NPC: Maren Fell</h2>
+  <div class="grid-2">
+    <div class="grid-box">
+      <h4>Identity</h4>
+      <p style="font-size: 0.82rem;">
+        Soldier, 28 years old<br>
+        Fate: 0.7<br>
+        Social class: Working<br>
+        Faction: Northern Alliance<br>
+        Temperament: Calm
+      </p>
+    </div>
+    <div class="grid-box">
+      <h4>Physical Stats</h4>
+      <p style="font-size: 0.82rem;">
+        Strength: 72, Toughness: 68<br>
+        Agility: 61, Health: 100<br>
+        Height: 175cm, Weight: 78kg<br>
+        Attractiveness: 55
+      </p>
+    </div>
+    <div class="grid-box">
+      <h4>Mental Stats</h4>
+      <p style="font-size: 0.82rem;">
+        Intelligence: 48, <strong>Depth: 71</strong><br>
+        Wisdom: 54, Perception: 66<br>
+        Willpower: 62, Education: 25<br>
+        Creativity: 38
+      </p>
+    </div>
+    <div class="grid-box">
+      <h4>Social Stats</h4>
+      <p style="font-size: 0.82rem;">
+        Charisma: 44, Empathy: 58<br>
+        <strong>Courage: 82</strong>, Honesty: 65<br>
+        Humor: 31, Stubbornness: 70<br>
+        Ambition: 45, <strong>Loyalty: 88</strong>
+      </p>
+    </div>
+  </div>
+  <div class="sep"></div>
+  <p><strong>Depth Score:</strong> 71*0.30 + 48*0.20 + 54*0.15 + 58*0.15 + 38*0.10 + 25*0.10 = <strong>53.7</strong></p>
+  <p><strong>Prompt Tokens:</strong> 40 + 53.7 * 14 = <strong>~792 tokens</strong></p>
+  <p><strong>Model Tier:</strong> effective = 53.7 + (0.7 * 10) = 60.7. Roll: 60.7 &plusmn; 8 &rarr; likely <strong>Sonnet</strong></p>
+  <p>A soldier who doesn't say much but notices more than she lets on. Deeply loyal, not intellectual about it. Surprisingly courageous. Unexpectedly interesting to talk to.</p>
+</div>
+</section>
+
+<!-- Slide 35: Open Questions -->
+<section class="slide" id="s35">
+<div class="slide-inner">
+  <div class="section-label">Appendix</div>
+  <h2>Open Questions</h2>
+  <ol>
+    <li><strong>Game name</strong> &mdash; leaning Loom</li>
+    <li><strong>Default genre/setting</strong> &mdash; medieval dark fantasy? or genre selection at world creation?</li>
+    <li><strong>Multiplayer</strong> &mdash; parked for now, but world-sharing is a stepping stone</li>
+    <li><strong>Monetization</strong> &mdash; subscription? per-session? free tier?</li>
+    <li><strong>Platform</strong> &mdash; terminal prototype first, then web? mobile?</li>
+    <li><strong>Post-endgame content</strong> &mdash; what happens after the war? Director generates new tensions, but needs specifics</li>
+    <li><strong>Difficulty settings</strong> &mdash; adjustable fate density? combat lethality? antagonist intelligence?</li>
+    <li><strong>Accessibility</strong> &mdash; text-to-speech? font sizes? colorblind considerations?</li>
+    <li><strong>Mod support</strong> &mdash; custom world builder prompts? custom stat schemas? community NPCs?</li>
+    <li><strong>How many simultaneous companions</strong> &mdash; 1? 3? unlimited but they argue with each other?</li>
+  </ol>
+  <div class="sep"></div>
+  <p style="text-align: center; color: #5a5040; margin-top: 1rem; font-size: 0.85rem;">End of Design Review</p>
+</div>
+</section>
+
+<!-- ── Slide Counter ── -->
+<div id="slide-counter">1 / 35</div>
+<div id="nav-hint">Swipe or arrow keys</div>
+
+<script>
+(function() {
+  const slides = document.querySelectorAll('.slide');
+  const counter = document.getElementById('slide-counter');
+  const total = slides.length;
+
+  // Update counter on scroll
+  function updateCounter() {
+    const scrollTop = window.scrollY || document.documentElement.scrollTop;
+    const vh = window.innerHeight;
+    // Find which slide is most in view
+    let current = 1;
+    for (let i = 0; i < slides.length; i++) {
+      const rect = slides[i].getBoundingClientRect();
+      if (rect.top <= vh * 0.5) {
+        current = i + 1;
+      }
+    }
+    counter.textContent = current + ' / ' + total;
+  }
+
+  window.addEventListener('scroll', updateCounter, { passive: true });
+  updateCounter();
+
+  // Keyboard navigation
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowRight' || e.key === ' ') {
+      e.preventDefault();
+      const scrollTop = window.scrollY || document.documentElement.scrollTop;
+      const vh = window.innerHeight;
+      let currentIdx = 0;
+      for (let i = 0; i < slides.length; i++) {
+        if (slides[i].getBoundingClientRect().top <= 10) {
+          currentIdx = i;
+        }
+      }
+      const next = Math.min(currentIdx + 1, slides.length - 1);
+      slides[next].scrollIntoView({ behavior: 'smooth' });
+    }
+    if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+      e.preventDefault();
+      const scrollTop = window.scrollY || document.documentElement.scrollTop;
+      const vh = window.innerHeight;
+      let currentIdx = 0;
+      for (let i = 0; i < slides.length; i++) {
+        if (slides[i].getBoundingClientRect().top <= 10) {
+          currentIdx = i;
+        }
+      }
+      const prev = Math.max(currentIdx - 1, 0);
+      slides[prev].scrollIntoView({ behavior: 'smooth' });
+    }
+  });
+})();
+</script>
+
+</body>
+</html>
