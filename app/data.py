@@ -362,11 +362,11 @@ class NPC:
     name: str
     age: int
     fate: float                   # 0.0 to 1.0 — narrative importance
+    stats: Stats
+    occupation: str
+    social_class: str = "working"
+    wealth: int = 30
     gender: str = ""              # "m" or "f"
-    stats: Stats = field(default_factory=Stats)
-    occupation: str = ""
-    social_class: str             # destitute, working, merchant, noble, royal
-    wealth: int                   # 0-100
     faction: str = "none"
     faction_loyalty: int = 50
     temperament: str = "calm"     # volatile, calm, melancholy, cheerful, cold
