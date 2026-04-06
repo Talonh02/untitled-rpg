@@ -124,6 +124,24 @@ def tick_economy(world: World):
                 produced = int(amount * random.uniform(0.85, 1.15))
                 econ["stockpile"][resource] = econ["stockpile"].get(resource, 0) + produced
 
+    # Step 1b: Hinterland feeding — cities draw from parent region before consuming
+    # FIX 5: cities pull up to 80% of their needs from the surrounding region first
+    for loc in world.locations.values():
+        if loc.type == "city" and hasattr(loc, '_economy') and loc._economy:
+            parent = world.locations.get(loc.parent_id)
+            if parent and hasattr(parent, '_economy') and parent._economy:
+                parent_stock = parent._economy.get("stockpile", {})
+                city_stock = loc._economy.get("stockpile", {})
+                city_consumption = loc._economy.get("consumption", {})
+                for resource, need in city_consumption.items():
+                    # Draw up to 80% of what we need from the region
+                    draw = int(need * 0.8)
+                    available = parent_stock.get(resource, 0)
+                    actual_draw = min(draw, available)
+                    if actual_draw > 0:
+                        parent_stock[resource] = available - actual_draw
+                        city_stock[resource] = city_stock.get(resource, 0) + actual_draw
+
     # Step 2: City consumption
     for loc in world.locations.values():
         if loc.type == "city" and hasattr(loc, '_economy') and loc._economy:
@@ -212,13 +230,15 @@ def _run_trade(world: World):
             b_has = stock_b.get(resource, 0)
             if a_has > b_has + 5:
                 # A has surplus, send to B
-                transfer = int((a_has - b_has) * 0.2 * trade_efficiency)
+                # FIX 5: transfer rate 50% (was 20%) for faster market balancing
+                transfer = int((a_has - b_has) * 0.5 * trade_efficiency)
                 transfer = min(transfer, a_has)
                 stock_a[resource] = a_has - transfer
                 stock_b[resource] = b_has + transfer
                 trade_volume += transfer * BASE_PRICES.get(resource, 1)
             elif b_has > a_has + 5:
-                transfer = int((b_has - a_has) * 0.2 * trade_efficiency)
+                # FIX 5: transfer rate 50% (was 20%)
+                transfer = int((b_has - a_has) * 0.5 * trade_efficiency)
                 transfer = min(transfer, b_has)
                 stock_b[resource] = b_has - transfer
                 stock_a[resource] = a_has + transfer

@@ -132,10 +132,13 @@ def generate_npc(occupation, name=None, age=None, location="") -> NPC:
     attractor = ROLE_FATE_ATTRACTORS.get(occ_lower, 0.05)
 
     # 2. Roll fate (gaussian around attractor, clamped 0-1)
-    fate = max(0.0, min(1.0, random.gauss(attractor, 0.12)))
+    # FIX 10: tighter std (0.07) so farmers cluster tight around 0.04
+    fate = max(0.0, min(1.0, random.gauss(attractor, 0.07)))
 
-    # 3. Fate shifts stat generation mean
-    stat_mean = 42 + fate * 20  # fate 0.0 → 42, fate 1.0 → 62
+    # 3. Fate shifts stat generation mean and spread
+    # FIX 1: use stats.py formula (fate*30 not fate*20) + variable std
+    stat_mean = 42 + fate * 30  # fate 0.0 → 42, fate 1.0 → 72
+    stat_std = 16 + fate * 8    # fate 0.0 → std 16, fate 1.0 → std 24
 
     # 4. Roll all stats
     stat_names = [
@@ -146,7 +149,7 @@ def generate_npc(occupation, name=None, age=None, location="") -> NPC:
     ]
     stat_values = {}
     for s in stat_names:
-        stat_values[s] = max(1, min(100, int(random.gauss(stat_mean, 16))))
+        stat_values[s] = max(1, min(100, int(random.gauss(stat_mean, stat_std))))
 
     # Apply role stat floors (king gets education 50+ etc.)
     floors = ROLE_STAT_FLOORS.get(occ_lower, {})
@@ -419,20 +422,22 @@ def _resolve_npc_interactions(world: World):
     if len(notable) < 2:
         return
 
-    # 30% chance of an interaction happening today
-    if random.random() > 0.30:
+    # FIX 8: 60% chance of interaction (was 30% with inverted logic)
+    if random.random() > 0.40:
         return
 
-    # Pick two NPCs at the same location (or nearby)
-    for _ in range(5):  # try a few times to find co-located pair
+    # FIX 8: allow NPCs in the same CITY to interact (not just same exact location)
+    for _ in range(10):  # try more times to find a pair in the same city
         a, b = random.sample(notable, 2)
-        if a.location == b.location:
+        city_a = world.get_city_for_location(a.location)
+        city_b = world.get_city_for_location(b.location)
+        if city_a and city_b and city_a.id == city_b.id:
             _npc_interact(a, b, world)
             return
 
-    # No co-located pair found — occasionally two important NPCs
-    # in different locations exchange messages
-    if random.random() < 0.1:
+    # No same-city pair found — long-distance message exchange
+    # FIX 8: increased long-distance message chance from 0.1 to 0.25
+    if random.random() < 0.25:
         a, b = random.sample(notable, 2)
         _npc_exchange(a, b, world)
 

@@ -192,6 +192,8 @@ def _deserialize_npc(d: dict) -> NPC:
             flags=rel_data.get("flags", []),
             knowledge_of_player=rel_data.get("knowledge_of_player", []),
             last_summary=rel_data.get("last_summary", ""),
+            # FIX 9: restore conversation history on load
+            conversation_log=rel_data.get("conversation_log", []),
         )
 
     # Rebuild injuries
@@ -521,6 +523,10 @@ def assemble_npc_context(npc: NPC, game_state: GameState) -> str:
     briefing = generate_world_briefing(game_state, tier)
     parts.append(f"\n[WORLD STATE — what you know about the world:]\n{briefing}")
 
+    # Build tier index for conditional sections below (0=common, 5=mythic)
+    tier_order = ["common", "uncommon", "rare", "epic", "legendary", "mythic"]
+    tier_idx = tier_order.index(tier) if tier in tier_order else 0
+
     # 3. Relationship with player (if any)
     if npc.relationship:
         rel = npc.relationship
@@ -556,6 +562,11 @@ def assemble_npc_context(npc: NPC, game_state: GameState) -> str:
                     pass
             time_str = f" ({time_ago})" if time_ago else ""
             parts.append(f"[Last interaction{time_str}: {rel.last_summary}]")
+
+        # FIX 9: inject full conversation history for rare+ NPCs (tier_idx >= 2)
+        if hasattr(rel, 'conversation_log') and rel.conversation_log and tier_idx >= 2:
+            parts.append("[Previous conversations:\n" +
+                         "\n".join(f"  {entry}" for entry in rel.conversation_log[-10:]) + "]")
 
     # 4. Current situation
     world = game_state.world

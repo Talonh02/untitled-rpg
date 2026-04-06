@@ -400,8 +400,11 @@ class GameLoop:
         rel = npc.relationship
 
         # Store what happened with timestamp (injected into next context)
+        # FIX 9: append to conversation_log (full history) in addition to last_summary
         day = self.state.world.current_day
         rel.last_summary = f"[Day {day}] Player said: \"{player_said[:120]}\" You replied: \"{npc_said[:120]}\""
+        rel.conversation_log.append(rel.last_summary)
+        rel.conversation_log = rel.conversation_log[-15:]  # cap at 15 entries
         # Store the day for time-ago calculation
         if not hasattr(rel, '_last_interaction_day'):
             rel.flags = [f for f in rel.flags if not f.startswith("last_day:")]

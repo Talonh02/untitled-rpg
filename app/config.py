@@ -68,7 +68,7 @@ GAME_CONSTANTS = {
     "base_stat_mean": 42,
     "base_stat_std": 16,
     "player_stat_mean": 55,       # players are slightly above average
-    "decision_point_margin": 0.08,
+    "decision_point_margin": 0.03,
     "protagonist_death_reduction": 0.5,
     "sneak_attack_multiplier": 1.4,
     "trust_decay_companion": 0.5,  # per day if ignored

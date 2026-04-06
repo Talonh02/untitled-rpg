@@ -138,22 +138,36 @@ class BattleSim:
         for c in self.player_side:
             if not c["alive"] or not c["active"]:
                 continue
-            target = self._pick_target(self.enemy_side)
-            if target:
-                evt = self._resolve_attack(c, target)
-                if evt:
-                    events.append(evt)
+            # FIX 3: high power-tier entities (dragons, giants) hit ALL enemies
+            if c.get("power_tier", 1) >= 3:
+                for target in [t for t in self.enemy_side if t["alive"]]:
+                    evt = self._resolve_attack(c, target)
+                    if evt:
+                        events.append(evt)
+            else:
+                target = self._pick_target(self.enemy_side)
+                if target:
+                    evt = self._resolve_attack(c, target)
+                    if evt:
+                        events.append(evt)
 
         # Enemy side attacks player side
         for c in self.enemy_side:
             if not c["alive"]:
                 continue
-            # Enemies prefer to target active combatants
-            target = self._pick_target(self.player_side, prefer_active=True)
-            if target:
-                evt = self._resolve_attack(c, target)
-                if evt:
-                    events.append(evt)
+            # FIX 3: high power-tier entities hit ALL player-side combatants
+            if c.get("power_tier", 1) >= 3:
+                for target in [t for t in self.player_side if t["alive"]]:
+                    evt = self._resolve_attack(c, target)
+                    if evt:
+                        events.append(evt)
+            else:
+                # Normal enemies prefer to target active combatants
+                target = self._pick_target(self.player_side, prefer_active=True)
+                if target:
+                    evt = self._resolve_attack(c, target)
+                    if evt:
+                        events.append(evt)
 
         # Morale breaks
         for c in self.player_side + self.enemy_side:
@@ -184,14 +198,19 @@ class BattleSim:
 
         # Number of swings this round (fast weapons get more)
         num_attacks = max(1, int(speed + random.uniform(-0.2, 0.2)))
+        # FIX 3: high-tier entities (dragons, giants) get bonus attacks
+        if atk.get("power_tier", 1) >= 3:
+            num_attacks += atk["power_tier"]  # dragon (tier 4) gets 5+ attacks per round
 
         total_damage = 0
         hits = 0
 
         for _ in range(num_attacks):
-            # Hit chance: 50% base, ±agility difference
+            # Hit chance: 50% base, ±agility difference, armor reduces it
+            # FIX 4: armor penalty in individual attacks (0.008 per defense point)
             dfn_agi = dfn.get("agi", 42)
-            hit_chance = 0.50 + (atk["agi"] - dfn_agi) * 0.005
+            armor_def = ARMOR.get(dfn.get("armor", "none"), ARMOR["none"])["defense"]
+            hit_chance = 0.50 + (atk["agi"] - dfn_agi) * 0.005 - armor_def * 0.008
             hit_chance = max(0.15, min(0.90, hit_chance))
 
             if random.random() < hit_chance:
@@ -225,8 +244,9 @@ class BattleSim:
         attack_count = max(1, int(count * 0.3 * random.uniform(0.6, 1.4)))
 
         # Hit chance: perception helps, enemy armor hurts
+        # FIX 4: stronger armor penalty (0.012 instead of 0.005) — plate drops hit% by 36%
         armor_def = ARMOR.get(target.get("armor", "none"), ARMOR["none"])["defense"]
-        hit_chance = 0.35 + unit["per"] * 0.003 - armor_def * 0.005
+        hit_chance = 0.35 + unit["per"] * 0.003 - armor_def * 0.012
         hit_chance = max(0.10, min(0.70, hit_chance))
 
         hits = sum(1 for _ in range(attack_count) if random.random() < hit_chance)

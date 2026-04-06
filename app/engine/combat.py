@@ -116,9 +116,10 @@ def calculate_hp_damage(margin, armor_name="none"):
     # Base damage: scales inversely with margin
     base = max(0, 45 - margin * 80)
 
-    # Armor reduces damage (plate=30 → 15% reduction)
+    # Armor reduces damage (plate=30 → 30% reduction)
+    # FIX 7: armor_factor multiplier 1.0 (was 0.5) — plate now gives true 30% reduction
     armor_defense = ARMOR.get(armor_name, ARMOR["none"])["defense"]
-    armor_factor = 1.0 - (armor_defense / 100.0) * 0.5
+    armor_factor = 1.0 - (armor_defense / 100.0) * 1.0
 
     damage = base * armor_factor * random.uniform(0.8, 1.2)
     return max(0, int(damage))
@@ -528,12 +529,13 @@ def resolve_combat(player, enemies, companions=None, context=None):
         enemy_total *= 0.8 + (avg_enemy_perception / 500.0)
 
     # Numbers advantage (diminishing returns via log2)
+    # FIX 6: numbers advantage coefficient 0.25 (was 0.4) — reduces zerg bonus
     if player_count > enemy_count and enemy_count > 0:
         ratio = player_count / enemy_count
-        player_total *= 1 + (math.log2(ratio) * 0.4)
+        player_total *= 1 + (math.log2(ratio) * 0.25)
     elif enemy_count > player_count and player_count > 0:
         ratio = enemy_count / player_count
-        enemy_total *= 1 + (math.log2(ratio) * 0.4)
+        enemy_total *= 1 + (math.log2(ratio) * 0.25)
 
     # --- Step 5: Add randomness (±20% per side) ---
     player_roll = player_total * random.uniform(0.8, 1.2)

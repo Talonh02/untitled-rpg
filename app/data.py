@@ -106,6 +106,8 @@ class Relationship:
     flags: list = field(default_factory=list)
     knowledge_of_player: list = field(default_factory=list)
     last_summary: str = ""
+    # FIX 9: full conversation history (list of summaries, capped at 15)
+    conversation_log: list = field(default_factory=list)
 
     @property
     def stage(self) -> str:
@@ -132,6 +134,7 @@ class Relationship:
             "interactions": self.interactions, "flags": self.flags,
             "knowledge_of_player": self.knowledge_of_player,
             "last_summary": self.last_summary, "stage": self.stage,
+            "conversation_log": self.conversation_log,
         }
 
 
