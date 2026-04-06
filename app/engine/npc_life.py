@@ -135,41 +135,30 @@ def generate_npc(occupation, name=None, age=None, location="") -> NPC:
     # FIX 10: tighter std (0.07) so farmers cluster tight around 0.04
     fate = max(0.0, min(1.0, random.gauss(attractor, 0.07)))
 
-    # 3. Fate shifts stat generation mean and spread
-    # FIX 1: use stats.py formula (fate*30 not fate*20) + variable std
-    stat_mean = 42 + fate * 30  # fate 0.0 → 42, fate 1.0 → 72
-    stat_std = 16 + fate * 8    # fate 0.0 → std 16, fate 1.0 → std 24
+    # 3. Generate stats via the SINGLE canonical generator (stats.py)
+    # Handles: fate-shaped gaussian, occupation modifiers (+12 STR for soldiers),
+    # age effects (old = less agility, more wisdom), social class floors,
+    # stat correlations, physical attributes (height/weight)
+    from app.engine.stats import generate_npc_stats
 
-    # 4. Roll all stats
-    stat_names = [
-        "strength", "toughness", "agility", "intelligence", "depth",
-        "wisdom", "perception", "willpower", "education", "creativity",
-        "charisma", "empathy", "courage", "honesty", "humor",
-        "stubbornness", "ambition", "loyalty",
-    ]
-    stat_values = {}
-    for s in stat_names:
-        stat_values[s] = max(1, min(100, int(random.gauss(stat_mean, stat_std))))
+    social_class = ROLE_SOCIAL_CLASS.get(occ_lower, "working")
+    if not age:
+        age = random.randint(18, 65)
 
-    # Apply role stat floors (king gets education 50+ etc.)
+    stats = generate_npc_stats(fate=fate, occupation=occ_lower,
+                               social_class=social_class, age=age)
+
+    # Apply role stat floors ON TOP (king edu 50+, dragon str 80+)
     floors = ROLE_STAT_FLOORS.get(occ_lower, {})
-    for stat, floor in floors.items():
-        if stat in stat_values and stat_values[stat] < floor:
-            stat_values[stat] = floor
-
-    # Physical stats
-    stat_values["health"] = 100
-    stat_values["height_cm"] = random.randint(155, 195)
-    stat_values["weight_kg"] = random.randint(55, 100)
-    stat_values["attractiveness"] = max(1, min(100, int(random.gauss(50, 15))))
-
-    stats = Stats(**stat_values)
+    if floors:
+        d = stats.to_dict()
+        for stat, floor in floors.items():
+            if stat in d and d[stat] < floor:
+                d[stat] = floor
+        stats = Stats.from_dict(d)
 
     # 5. Power tier from species/role
     power_tier = get_default_power_tier(occ_lower)
-
-    # Social class
-    social_class = ROLE_SOCIAL_CLASS.get(occ_lower, "working")
 
     # Equipment
     weapon, armor = ROLE_EQUIPMENT.get(occ_lower, ("unarmed", "none"))
