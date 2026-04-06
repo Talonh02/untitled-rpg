@@ -92,6 +92,23 @@ def new_game():
 
     game_state.player = player
 
+    # Author world lore (one Claude call — history, religion, culture)
+    try:
+        from app.ai.world_author import author_world_lore, apply_world_lore, author_player_backstory
+        lore = author_world_lore(game_state.world)
+        apply_world_lore(game_state.world, lore)
+    except Exception:
+        pass  # lore is nice-to-have
+
+    # Author rich player backstory with family history (~500 words)
+    try:
+        from app.ai.world_author import author_player_backstory
+        backstory = author_player_backstory(player, game_state.world)
+        if backstory:
+            player.backstory = backstory
+    except Exception:
+        pass  # keeps the archetype template
+
     # Initialize game loop (ui=None for web mode)
     from app.game.loop import GameLoop
     _game["loop"] = GameLoop(game_state, ui=None)

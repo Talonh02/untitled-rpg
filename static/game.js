@@ -686,40 +686,71 @@ async function loadLore(panel) {
             panel.innerHTML = `<div class="dim">${lore.error}</div>`;
             return;
         }
-        panel.innerHTML = `
-            <div class="lore-section">
-                ${lore.name ? `<div class="lore-section"><h4>${escapeHtml(lore.name)}</h4></div>` : ''}
-                ${lore.era ? `<div class="dim">${escapeHtml(lore.era)}</div>` : ''}
-                ${lore.tone ? `<div class="dim italic">${escapeHtml(lore.tone)}</div>` : ''}
-                ${lore.themes?.length ? `<div class="lore-themes">${lore.themes.map(t => escapeHtml(t)).join(' · ')}</div>` : ''}
-            </div>
-            ${lore.factions && Object.keys(lore.factions).length ? `
-                <div class="lore-section">
-                    <h4>Factions</h4>
-                    ${Object.entries(lore.factions).map(([name, data]) =>
-                        `<div class="lore-faction"><strong>${escapeHtml(name)}</strong>${
-                            typeof data === 'object' && data.goals?.length ? `: ${escapeHtml(data.goals[0])}` : ''
-                        }</div>`
-                    ).join('')}
-                </div>
-            ` : ''}
-            ${lore.conflicts?.length ? `
-                <div class="lore-section">
-                    <h4>Active Conflicts</h4>
-                    ${lore.conflicts.map(c =>
-                        `<div class="lore-conflict">${escapeHtml(typeof c === 'object' ? (c.name || JSON.stringify(c)) : String(c))}</div>`
-                    ).join('')}
-                </div>
-            ` : ''}
-            ${lore.traditions?.length ? `
-                <div class="lore-section">
-                    <h4>Traditions</h4>
-                    ${lore.traditions.slice(0, 5).map(t =>
-                        `<div class="dim">${escapeHtml(typeof t === 'object' ? (t.name || JSON.stringify(t)) : String(t))}</div>`
-                    ).join('')}
-                </div>
-            ` : ''}
-        `;
+        // Helper to render text or object
+        const txt = (v) => typeof v === 'object' ? (v.summary || v.description || JSON.stringify(v)) : String(v || '');
+
+        let html = '';
+
+        // World name and era
+        if (lore.name) html += `<div class="lore-section"><h4>${escapeHtml(lore.name)}</h4></div>`;
+        if (lore.era) html += `<div class="dim">${escapeHtml(lore.era)}</div>`;
+        if (lore.tone) html += `<div class="dim italic">${escapeHtml(lore.tone)}</div>`;
+        if (lore.themes?.length) html += `<div class="lore-themes">${lore.themes.map(t => escapeHtml(t)).join(' · ')}</div>`;
+
+        // History
+        const history = txt(lore.history);
+        if (history && history.length > 5) {
+            html += `<div class="lore-section"><h4>History</h4><div class="lore-text">${escapeHtml(history)}</div></div>`;
+        }
+
+        // Religion
+        const religion = lore.religion;
+        if (religion) {
+            const relName = typeof religion === 'object' ? religion.name : '';
+            const relDesc = txt(religion);
+            html += `<div class="lore-section"><h4>${relName ? escapeHtml(relName) : 'Religion'}</h4><div class="lore-text">${escapeHtml(relDesc)}</div></div>`;
+        }
+
+        // Economy
+        const economy = txt(lore.economy);
+        if (economy && economy.length > 5) {
+            html += `<div class="lore-section"><h4>Economy</h4><div class="lore-text">${escapeHtml(economy)}</div></div>`;
+        }
+
+        // Factions
+        if (lore.factions && Object.keys(lore.factions).length) {
+            html += `<div class="lore-section"><h4>Factions</h4>`;
+            for (const [name, data] of Object.entries(lore.factions)) {
+                const fName = typeof data === 'object' ? (data.name || name) : name;
+                const fDetail = typeof data === 'object' ?
+                    `${data.title || ''} ${data.ruler || ''} · ${data.government || ''} · ${data.strength || ''}`.trim() : '';
+                html += `<div class="lore-faction"><strong>${escapeHtml(fName)}</strong>${fDetail ? `<br><span class="dim">${escapeHtml(fDetail)}</span>` : ''}</div>`;
+            }
+            html += `</div>`;
+        }
+
+        // Conflicts
+        if (lore.conflicts?.length) {
+            html += `<div class="lore-section"><h4>Active Conflicts</h4>`;
+            lore.conflicts.forEach(c => {
+                const cText = typeof c === 'object' ? `${c.name || '?'}: ${c.current_status || ''}` : String(c);
+                html += `<div class="lore-conflict">${escapeHtml(cText)}</div>`;
+            });
+            html += `</div>`;
+        }
+
+        // Traditions
+        if (lore.traditions?.length) {
+            html += `<div class="lore-section"><h4>Intellectual Traditions</h4>`;
+            lore.traditions.forEach(t => {
+                const tName = typeof t === 'object' ? (t.name || '?') : String(t);
+                const tDesc = typeof t === 'object' ? (t.description || '') : '';
+                html += `<div class="lore-tradition"><strong>${escapeHtml(tName)}</strong>${tDesc ? ` — <span class="dim">${escapeHtml(tDesc)}</span>` : ''}</div>`;
+            });
+            html += `</div>`;
+        }
+
+        panel.innerHTML = html || '<div class="dim">No lore available.</div>';
     } catch (e) {
         panel.innerHTML = '<div class="dim">Failed to load lore.</div>';
     }

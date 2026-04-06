@@ -727,9 +727,17 @@ hr {
     font-size: 0.85rem;
 }
 
-.lore-faction, .lore-conflict {
+.lore-text {
+    font-size: 0.82rem;
+    line-height: 1.6;
+    color: var(--text);
+    margin-bottom: 0.5rem;
+}
+
+.lore-faction, .lore-conflict, .lore-tradition {
     padding: 0.2rem 0;
     font-size: 0.85rem;
+    border-bottom: 1px solid var(--border);
 }
 
 /* Map tab */

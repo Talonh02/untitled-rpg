@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Loom — Research Report</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;0,9..144,700;1,9..144,400&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #0f0d0b;
+    --surface: #1a1714;
+    --surface2: #231f1a;
+    --border: #332d25;
+    --gold: #c4a35a;
+    --gold-dim: #8a7340;
+    --text: #d4cdc0;
+    --text-dim: #8a8278;
+    --text-bright: #eae5dd;
+    --green: #6b9e6b;
+    --green-dim: #3d5e3d;
+    --red: #b55a5a;
+    --red-dim: #5e3333;
+    --blue: #5a8ab5;
+    --blue-dim: #334d5e;
+    --orange: #b58a5a;
+    --purple: #8a6bb5;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    font-size: 15px;
+    line-height: 1.65;
+    padding: 40px 20px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: 'Fraunces', serif;
+    color: var(--text-bright);
+    font-weight: 500;
+  }
+
+  h1 {
+    font-size: 2.4em;
+    margin-bottom: 8px;
+    color: var(--gold);
+    letter-spacing: -0.02em;
+  }
+
+  .subtitle {
+    color: var(--text-dim);
+    font-size: 0.95em;
+    margin-bottom: 48px;
+    font-style: italic;
+  }
+
+  h2 {
+    font-size: 1.6em;
+    margin: 56px 0 24px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+    color: var(--gold);
+  }
+
+  h3 {
+    font-size: 1.15em;
+    margin: 32px 0 12px;
+    color: var(--text-bright);
+  }
+
+  h4 {
+    font-size: 1em;
+    margin: 20px 0 8px;
+    color: var(--gold-dim);
+    font-weight: 600;
+  }
+
+  p { margin-bottom: 12px; }
+
+  a {
+    color: var(--blue);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.2s;
+  }
+  a:hover { border-bottom-color: var(--blue); }
+
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--surface2);
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 0.88em;
+    color: var(--gold);
+  }
+
+  pre {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px 20px;
+    overflow-x: auto;
+    margin: 12px 0 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82em;
+    line-height: 1.6;
+    color: var(--text);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0 20px;
+    font-size: 0.9em;
+  }
+
+  th {
+    background: var(--surface2);
+    color: var(--gold);
+    font-weight: 600;
+    text-align: left;
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.85em;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  td {
+    padding: 8px 14px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  tr:hover td { background: var(--surface2); }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin: 16px 0;
+  }
+
+  .card-title {
+    font-family: 'Fraunces', serif;
+    color: var(--text-bright);
+    font-size: 1.05em;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  .card-meta {
+    color: var(--text-dim);
+    font-size: 0.82em;
+    margin-bottom: 10px;
+  }
+
+  .verdict {
+    background: var(--surface);
+    border-left: 3px solid var(--gold);
+    padding: 16px 20px;
+    margin: 20px 0;
+    border-radius: 0 6px 6px 0;
+  }
+
+  .verdict-title {
+    color: var(--gold);
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: 1em;
+    margin-bottom: 6px;
+  }
+
+  .tag {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 0.78em;
+    font-weight: 600;
+    margin-right: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  .tag-novel { background: var(--green-dim); color: var(--green); }
+  .tag-strong { background: var(--blue-dim); color: var(--blue); }
+  .tag-steal { background: rgba(196,163,90,0.15); color: var(--gold); }
+  .tag-weak { background: var(--red-dim); color: var(--red); }
+  .tag-gap { background: rgba(138,107,181,0.15); color: var(--purple); }
+
+  .assessment-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 20px 0;
+  }
+
+  @media (max-width: 700px) {
+    .assessment-grid { grid-template-columns: 1fr; }
+  }
+
+  .assessment-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+  }
+
+  .assessment-card h4 {
+    margin: 0 0 8px;
+    font-size: 0.95em;
+  }
+
+  .toc {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 28px;
+    margin: 24px 0 40px;
+  }
+
+  .toc-title {
+    font-family: 'Fraunces', serif;
+    color: var(--gold);
+    font-size: 1.1em;
+    margin-bottom: 12px;
+  }
+
+  .toc ol {
+    padding-left: 20px;
+    color: var(--text-dim);
+  }
+
+  .toc li {
+    margin: 6px 0;
+  }
+
+  .toc a { color: var(--text); }
+  .toc a:hover { color: var(--gold); }
+
+  .repo-link {
+    color: var(--blue);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85em;
+  }
+
+  .formula {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px 16px;
+    margin: 10px 0 14px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85em;
+    color: var(--gold);
+  }
+
+  ul { padding-left: 20px; margin: 8px 0 12px; }
+  li { margin: 4px 0; }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 48px 0;
+  }
+
+  .section-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 24px 0 40px;
+  }
+
+  .section-nav a {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-size: 0.85em;
+    color: var(--text);
+    transition: all 0.2s;
+  }
+
+  .section-nav a:hover {
+    border-color: var(--gold);
+    color: var(--gold);
+  }
+
+  .comparison-row {
+    display: grid;
+    grid-template-columns: 180px 1fr 1fr;
+    gap: 1px;
+    background: var(--border);
+    margin: 2px 0;
+  }
+
+  .comparison-row > div {
+    background: var(--surface);
+    padding: 8px 14px;
+    font-size: 0.9em;
+  }
+
+  .comparison-row.header > div {
+    background: var(--surface2);
+    color: var(--gold);
+    font-weight: 600;
+    font-size: 0.82em;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .comparison-row > div:first-child {
+    color: var(--text-bright);
+    font-weight: 500;
+  }
+</style>
+</head>
+<body>
+
+<h1>Loom - Research Report</h1>
+<p class="subtitle">How other games build what you're building. Compiled April 5, 2026.</p>
+
+<nav class="toc">
+  <div class="toc-title">Contents</div>
+  <ol>
+    <li><a href="#honest">Honest Assessment - What's Novel, What's Not</a></li>
+    <li><a href="#suggestions">Concrete Suggestions</a></li>
+    <li><a href="#codebases">AI RPG Codebases</a></li>
+    <li><a href="#combat">Combat & Stats Engines</a></li>
+    <li><a href="#relationships">Romance & Relationship Mechanics</a></li>
+    <li><a href="#npcs">NPC AI & Dialogue Systems</a></li>
+    <li><a href="#worldgen">Procedural World Generation</a></li>
+    <li><a href="#mapping">Component Mapping - Your System vs. Best Reference</a></li>
+    <li><a href="#repos">Key Repos & Papers</a></li>
+  </ol>
+</nav>
+
+<!-- ==================== HONEST ASSESSMENT ==================== -->
+<h2 id="honest">Honest Assessment</h2>
+
+<p>After reading through dozens of games, repos, and papers, here's what I actually think about your architecture. No fluff.</p>
+
+<h3>What's Genuinely Novel</h3>
+
+<div class="card">
+  <span class="tag tag-novel">Novel</span>
+  <div class="card-title">Multi-Model NPC Tiering by Depth Score</div>
+  <p>Nobody else does this. RPGGO uses different models for different <em>roles</em> (narrator vs NPC vs DM), but nobody maps a continuous stat score to a model tier for individual NPCs. The idea that a washerwoman with depth 92 gets Opus while a knight with depth 28 gets Flash Lite - and the player never knows which model is running - is a genuinely new design. Watch Dogs: Legion does "uprezzing" (promoting NPCs from background to full sim), but that's a binary promotion triggered by player profiling, not a continuous stat-driven spectrum.</p>
+</div>
+
+<div class="card">
+  <span class="tag tag-novel">Novel</span>
+  <div class="card-title">Persuasion via Player's Actual Words</div>
+  <p>This is the biggest gap in the entire ecosystem. Every game we researched uses stat checks for persuasion - the player clicks "Persuade [DC 15]" or accumulates approval points through scripted choices. Nobody has shipped a system where an LLM evaluates whether the player's free-text argument would actually convince this specific NPC based on their personality, values, and trust level. Facade (2005) came closest with its permissive template matching, but it mapped to authored responses, not emergent NPC behavior. Disco Elysium is the spiritual ancestor (dialogue IS the mechanic), but its checks still use dice rolls against skill thresholds. Your system - where the interpreter model evaluates argument quality against NPC psychology - would be first-of-its-kind.</p>
+</div>
+
+<div class="card">
+  <span class="tag tag-novel">Novel</span>
+  <div class="card-title">Opus as Character Author (Stats-to-Soul Pipeline)</div>
+  <p>Using a frontier model to translate a stat block into a literary system prompt is new. Other systems use templates or lookup tables. The idea that Opus reads <code>depth: 70, intelligence: 45, emotional_vulnerability: 88, education: 30</code> and synthesizes a qualitatively different person than <code>depth: 68, intelligence: 72, emotional_vulnerability: 45, education: 65</code> is real. Nobody else is doing stat-to-prompt translation via a model.</p>
+</div>
+
+<h3>What's Strong But Not New</h3>
+
+<div class="card">
+  <span class="tag tag-strong">Strong</span>
+  <div class="card-title">"Models Speak, Python Thinks"</div>
+  <p>This is the right architecture, and you articulate it more clearly than anyone else, but RPGGO's Zagii engine already separates game logic from LLM generation. The <code>dungeon-master-ai-project</code> repo does the same. You're in good company, but this is an established pattern in the AI-RPG space, not an invention.</p>
+</div>
+
+<div class="card">
+  <span class="tag tag-strong">Strong</span>
+  <div class="card-title">The Director (Background World Events)</div>
+  <p>One cheap model call per game-day to advance the world is a good design. But it's essentially what Stanford's Generative Agents do with their planning/reflection cycle, and what the Sims' advertisement system does for autonomous NPC behavior (without any model). What makes yours distinctive is that it's a <em>single</em> call that manages the entire world state, rather than per-agent planning. That's a meaningful cost optimization.</p>
+</div>
+
+<div class="card">
+  <span class="tag tag-strong">Strong</span>
+  <div class="card-title">NPC Context Filtering</div>
+  <p>Giving NPCs only knowledge they'd plausibly have is the right call. Inworld AI, Convai, and Spirit AI all do this via RAG + character knowledge boundaries. Your tagged lore retrieval system is the same pattern. Not new, but essential and well-designed.</p>
+</div>
+
+<h3>What Needs Work</h3>
+
+<div class="card">
+  <span class="tag tag-weak">Needs Work</span>
+  <div class="card-title">Combat Math is Too Simple for Its Ambition</div>
+  <p>Your CPR formula is a weighted average of stats multiplied by weapon/armor factors with uniform randomness. It works, but it produces predictable outcomes. Mount & Blade uses a <code>^0.7</code> power compression exponent. Caves of Qud uses triple-singlet penetration rolls with explosion. Battle Brothers has a 4-stage damage pipeline. Your auto-resolve concept is strong (the player decides to fight, Python resolves, Sonnet narrates), but the resolution math needs more texture. Uniform <code>random(0.8, 1.2)</code> never produces upsets - a peasant with a lucky mace hit should occasionally drop a knight. That needs a tailed distribution.</p>
+</div>
+
+<div class="card">
+  <span class="tag tag-weak">Needs Work</span>
+  <div class="card-title">No Morale / Fleeing System</div>
+  <p>Every combat system we researched - Battle Brothers, M&B, D&D, even Moldvay Basic - has morale mechanics. Enemies should sometimes flee mid-combat (ending the fight early), and your companions' courage/trust should be tested not just at combat start but during the fight. This is a big missing piece. Without it, every fight is to-the-death, which is both unrealistic and dramatically flat.</p>
+</div>
+
+<div class="card">
+  <span class="tag tag-weak">Needs Work</span>
+  <div class="card-title">Mace vs Plate in the Weapon-Armor Matrix</div>
+  <p>You have mace/club vs plate at 0.85. Every historical source and every game we checked says maces were <em>purpose-built</em> for fighting plate armor. DF models this through material physics (blunt force transfers through rigid armor). Battle Brothers, GURPS, and historical combat manuals all agree: mace vs plate should be at or above 1.0. Your current matrix makes maces bad against plate, which contradicts 600 years of medieval warfare. Bump mace vs chain to 1.05-1.1 and mace vs plate to 0.95-1.05.</p>
+</div>
+
+<div class="card">
+  <span class="tag tag-weak">Needs Work</span>
+  <div class="card-title">Relationship System Isn't Fully Designed Yet</div>
+  <p>ARCHITECTURE.md mentions "trust, suspicion, attraction, fear, debt" but MECHANICS.md doesn't have formulas for any of them. This is the deepest gap. DF uses 24 personality facets with compatibility math. CK3 uses three separate axes. CiF-CK uses non-reciprocal social networks with microtheory-based volition. You need to decide: are relationships reciprocal or non-reciprocal? How do personality traits affect compatibility? What thresholds trigger state changes (friend, enemy, lover)? How does trust decay without interaction? The combat math is 200+ lines of formulas. The relationship system needs the same treatment.</p>
+</div>
+
+<div class="card">
+  <span class="tag tag-gap">Gap</span>
+  <div class="card-title">Interpreter JSON Truncation (~50% Failure)</div>
+  <p>Your playtest found the interpreter truncates JSON output ~50% of the time. Gigax solved this exact problem using <strong>Outlines</strong> for constrained structured generation - the model can only output valid JSON because the generation grammar enforces it. This is a critical infrastructure problem that will block everything else. Fix this before adding features.</p>
+</div>
+
+<!-- ==================== SUGGESTIONS ==================== -->
+<h2 id="suggestions">Concrete Suggestions</h2>
+
+<h3>Steal These Mechanics</h3>
+
+<div class="card">
+  <span class="tag tag-steal">Steal</span>
+  <div class="card-title">1. Dwarf Fortress Compatibility Math for Relationships</div>
+  <p>DF's system is simple and generates complex behavior: 24 personality facets on 0-100 scales. Compare any two NPCs: if both score >60 or both <40 on a facet, positive compatibility. If one >60 and other <40, negative (grudge pressure). Sum the positives and negatives across all relevant facets. That's it. Apply this to your NPC relationship formation. Two NPCs in the same room will either drift toward friendship or grudge based on personality alignment. No model call needed.</p>
+  <div class="formula">compatibility = sum(+1 if aligned, -1 if opposed, 0 if neutral) across facets</div>
+</div>
+
+<div class="card">
+  <span class="tag tag-steal">Steal</span>
+  <div class="card-title">2. Disco Elysium Passive Checks for NPC Internal Deliberation</div>
+  <p>When the Director needs to decide if an NPC notices something, suspects the player, or has an insight during conversation: <code>stat + 6 vs difficulty</code>. No dice, no randomness. If the NPC's perception is high enough, they notice. If their intelligence is high enough, they draw the right conclusion. The threshold is set by context difficulty. This is trivial to implement and replaces dozens of ad-hoc conditionals.</p>
+  <div class="formula">notice = (npc.perception + 6) >= difficulty_threshold</div>
+</div>
+
+<div class="card">
+  <span class="tag tag-steal">Steal</span>
+  <div class="card-title">3. Sims Advertisement System for NPC Autonomy</div>
+  <p>NPCs deciding what to do between scenes shouldn't require a model call. Use the Sims pattern: every object and location advertises what it offers (tavern: +social, +food, -gold; temple: +wisdom, +calm; market: +gold, -time). NPC picks the option that best satisfies their current needs, weighted by personality. A hungry NPC goes to the tavern. A devout NPC goes to the temple. A greedy NPC goes to the market. All computed in Python, no LLM.</p>
+</div>
+
+<div class="card">
+  <span class="tag tag-steal">Steal</span>
+  <div class="card-title">4. Stanford Generative Agents Memory Retrieval for Promoted NPCs</div>
+  <p>When an NPC gets promoted from Tier 0 to Tier 1 (player talks to them), seed their memory with their stat-block history as events. Then use the retrieval formula for choosing what they remember in conversation:</p>
+  <div class="formula">score = recency(0.995^hours) + importance(1-10) + relevance(cosine_similarity)</div>
+  <p>This means the bartender who saw you punch someone last week mentions it when you walk in, but doesn't bring up the weather from three months ago. Cheap to compute - just needs an embedding model for relevance scoring.</p>
+</div>
+
+<div class="card">
+  <span class="tag tag-steal">Steal</span>
+  <div class="card-title">5. Battle Brothers / Moldvay Morale System</div>
+  <p>After the first enemy casualty, roll morale for remaining enemies: <code>2d6 > morale_score</code>. Morale = <code>courage*0.4 + loyalty*0.3 + willpower*0.3</code>. If leader is dead: -3 penalty. If outnumbered: -2. If one enemy fails, adjacent enemies re-check at -1 (cascade). This creates rout outcomes (quick victory, less loot), heroic last stands (high-courage enemies fight to the death), and panic cascades. Three lines of code, massive dramatic variety.</p>
+</div>
+
+<div class="card">
+  <span class="tag tag-steal">Steal</span>
+  <div class="card-title">6. CK3's Three-Axis Relationship Model</div>
+  <p>CK3 separates <strong>Opinion</strong> (do I like you?), <strong>Attraction</strong> (am I drawn to you?), and <strong>AI Behavioral Tendency</strong> (what kind of person am I?). Your five axes (trust, suspicion, attraction, fear, debt) are good but could be cleaner as: <strong>Trust</strong> (earned through actions, decays slowly), <strong>Attraction</strong> (personality compatibility, relatively stable), <strong>Fear</strong> (power differential, immediate), <strong>Debt</strong> (transactional, concrete). Suspicion might be better as a function of low trust + NPC personality (paranoid NPCs suspect at lower thresholds) rather than a separate tracked value.</p>
+</div>
+
+<div class="card">
+  <span class="tag tag-steal">Steal</span>
+  <div class="card-title">7. Seed-Based Lazy Generation for Buildings</div>
+  <p>Derive each building's random seed from <code>world_seed + building_id</code>. Generate interiors on entry, discard on exit, regenerate identically on re-entry. Only promote to persistent storage when the player modifies something. This means your world can have 10,000 buildings but only store the 50 the player has actually changed.</p>
+  <div class="formula">seed = hash(f"{world_seed}:{building_id}")[:8]</div>
+</div>
+
+<h3>Fix These Things</h3>
+
+<div class="card">
+  <span class="tag tag-weak">Fix</span>
+  <div class="card-title">8. Replace Uniform Randomness with Tailed Distribution</div>
+  <p>Your <code>random.uniform(0.8, 1.2)</code> produces flat, predictable variance. Every fight outcome is within 20% of the calculated result. Real combat has long tails - sometimes the peasant gets lucky. Use <code>random.triangular(0.7, 1.3, 1.0)</code> (mode at 1.0, occasional extremes) or <code>1.0 + random.gauss(0, 0.12)</code> clamped to [0.7, 1.4]. This preserves the average while allowing dramatic upsets.</p>
+</div>
+
+<div class="card">
+  <span class="tag tag-weak">Fix</span>
+  <div class="card-title">9. Add Guaranteed Armor Reduction (from DCSS)</div>
+  <p>Your armor reduces severity via <code>armor_rating / 100</code> as a probability modifier. DCSS adds a <strong>guaranteed damage reduction</strong>: armor always blocks at minimum <code>armor_rating * 0.3</code> before any random rolls. This prevents the feel-bad of plate armor doing nothing on a bad roll. Someone in full plate should <em>always</em> take less damage than someone in cloth.</p>
+</div>
+
+<div class="card">
+  <span class="tag tag-weak">Fix</span>
+  <div class="card-title">10. Add Power Compression Exponent (from M&B)</div>
+  <p>Your combat currently uses raw CPR ratios. M&B uses <code>(attacker_power / defender_power)^0.7</code>. Without compression, an elite warrior (CPR 90) vs three bandits (CPR 40 each, total 120) gets a ratio of 0.75. With compression: <code>0.75^0.7 = 0.82</code> - the elite has a better chance. But three elites (CPR 270) vs one bandit gets 6.75, and compressed: <code>6.75^0.7 = 4.35</code> - the overkill is reduced. Compression prevents both "elite slaughtered by numbers" and "numbers-advantage makes fights trivial."</p>
+</div>
+
+<div class="card">
+  <span class="tag tag-weak">Fix</span>
+  <div class="card-title">11. Terrain-Parameterized Numbers Advantage</div>
+  <p>Your numbers advantage formula is fixed at <code>1 + log2(ratio) * 0.4</code>. Lanchester's Laws say: in open fields, numbers advantage should be quadratic (everyone engages). In narrow passes, it should be nearly linear (only one person fights at a time). Parameterize the exponent by terrain:</p>
+  <div class="formula">open field: 0.6 | forest/hills: 0.4 | narrow/bridge: 0.15 | indoors: 0.25</div>
+</div>
+
+<div class="card">
+  <span class="tag tag-weak">Fix</span>
+  <div class="card-title">12. Separate Cut vs Blunt Injury Types (from Kenshi)</div>
+  <p>Currently all injuries come from one pool regardless of weapon. Kenshi and GURPS both separate damage types with different consequences: <strong>Cutting</strong> weapons cause bleeding (worsens without treatment, potentially fatal). <strong>Blunt</strong> weapons cause stun/fracture (impairs immediately but heals on its own). This makes weapon choice matter beyond the multiplier - a mace breaks bones, a sword opens wounds. Different tactical and narrative implications.</p>
+</div>
+
+<!-- ==================== CODEBASES ==================== -->
+<h2 id="codebases">AI RPG Codebases</h2>
+
+<p>The landscape of AI-powered text RPGs is thin. Most are single-model text generators (AI Dungeon pattern). Only a handful attempt what you're building.</p>
+
+<h3>Tier 1 - Direct Architectural Relevance</h3>
+
+<div class="card">
+  <div class="card-title">RPGGO / XTalk + Zagii Engine</div>
+  <div class="card-meta"><a class="repo-link" href="https://github.com/RPGGO-AI/XTalk">github.com/RPGGO-AI/XTalk</a> | 15 stars | TypeScript | <a href="https://arxiv.org/html/2407.08195v2">Paper</a></div>
+  <p>Only production system with explicit multi-model architecture for different game roles. PMTA framework (Perception, Memory, Thinking, Action) for NPC decision-making. Centralized Message Bus for coordination. Cold-start optimization lets SOTA models pre-generate heuristics for lightweight models at runtime. <strong>Read the paper cover to cover.</strong></p>
+</div>
+
+<div class="card">
+  <div class="card-title">Stanford Generative Agents</div>
+  <div class="card-meta"><a class="repo-link" href="https://github.com/joonspk-research/generative_agents">github.com/joonspk-research/generative_agents</a> | 21k stars | Python</div>
+  <p>25 AI characters with memory streams (vector DB), reflection (higher-order observations), planning (daily decomposed to moment-by-moment). Memory retrieval: <code>recency * importance * relevance</code>. Reflection triggers when recent importance sum > 150. The foundational paper for AI NPC simulation.</p>
+</div>
+
+<div class="card">
+  <div class="card-title">Evennia (Python MUD Engine)</div>
+  <div class="card-meta"><a class="repo-link" href="https://github.com/evennia/evennia">github.com/evennia/evennia</a> | 2k+ stars | Python | BSD-3 | Very active</div>
+  <p>Most battle-tested Python implementation of room-based spatial worlds. Room/Exit/Object typeclass pattern. Exits as first-class objects. Every entity has one <code>location</code> field. <strong>Your <code>npc.location = "tessam_ironDrum_f2_backroom"</code> is literally Evennia's data model.</strong></p>
+</div>
+
+<div class="card">
+  <div class="card-title">Neighborly + OrganicWorldsim</div>
+  <div class="card-meta"><a class="repo-link" href="https://github.com/ShiJbey/neighborly">github.com/ShiJbey/neighborly</a> | 74 stars | Python | <a class="repo-link" href="https://github.com/Malacophonous/OrganicWorldsim">OrganicWorldsim</a></div>
+  <p>Neighborly: ECS-based settlement sim with trait-based opinion system. OrganicWorldsim: Maslow hierarchy motivations, ART (Attitude/Respect/Trust) relationship edges, event-based NPC memory. Both are Python. OrganicWorldsim is the closest existing codebase to your NPC relationship design.</p>
+</div>
+
+<h3>Tier 2 - Specific Mechanism Value</h3>
+
+<div class="card">
+  <div class="card-title">Gigax (Structured NPC Generation)</div>
+  <div class="card-meta"><a class="repo-link" href="https://github.com/GigaxGames/gigax">github.com/GigaxGames/gigax</a> | 339 stars | Python | MIT</div>
+  <p>Uses <strong>Outlines</strong> for constrained structured generation - models can only emit valid action tags. Directly solves your interpreter JSON truncation problem. Fine-tuned NPC models on HuggingFace could serve as cheap local models for background dialogue.</p>
+</div>
+
+<div class="card">
+  <div class="card-title">TaleWeave AI + Tale</div>
+  <div class="card-meta"><a class="repo-link" href="https://github.com/ssube/taleweave-ai">taleweave-ai</a> | <a class="repo-link" href="https://github.com/irmen/Tale">Tale</a> | Python</div>
+  <p>TaleWeave: MUD engine with LLM NPCs + mood/hunger/weather. Plugin architecture. Tale: Clean Python MUD framework, dual IF/MUD mode. Both are smaller and more readable than Evennia.</p>
+</div>
+
+<!-- ==================== COMBAT ==================== -->
+<h2 id="combat">Combat & Stats Engines</h2>
+
+<h3>Mount & Blade Auto-Resolve</h3>
+<p>The closest analog to your auto-resolve design. Reverse-engineered by modders.</p>
+
+<div class="formula">
+TroopPower = (2 + Tier) * (10 + Tier) * 0.02<br>
+Damage = (0.5 + 0.5*rand) * 40 * (AttackerPower / VictimPower)<strong>^0.7</strong> * PerkBonus
+</div>
+
+<p>The <code>^0.7</code> exponent is key - it prevents one elite from trivially destroying 20 peasants (diminishing returns on power advantage) while still rewarding quality over quantity.</p>
+
+<h3>Dwarf Fortress Combat</h3>
+<p>No hit points. Every body part modeled with layered tissues. Damage depends on real physics: stress = force / contact area. Maces concentrate force (small contact area), slaps spread it. <strong>Blunt weapons are BETTER against plate, not "less bad."</strong></p>
+
+<h3>Battle Brothers Damage Pipeline</h3>
+<pre>
+1. Roll weapon damage: rand(Min, Max)
+2. Armor damage = roll * ArmorMod * ForgeMod
+   ForgeMod = 1 - ((helmet + body_armor) * 0.0005)  // heavier = harder to damage
+3. HP damage = armor_ignore_portion + non_ignore_portion
+4. Remaining armor gives 10% passive DR
+Injury if: damage >= MaxHP * 0.25 (body) or 0.3125 (head)
+</pre>
+<p>BB's injury system is <strong>percentage-based</strong> (injury if damage > 25% of max HP). Your system uses fixed margin thresholds. Consider scaling injury severity by the damage-to-health ratio.</p>
+
+<h3>TTRPG Formulas That Matter</h3>
+
+<table>
+  <tr><th>System</th><th>Key Mechanic</th><th>Why It Matters for You</th></tr>
+  <tr><td>D&D 5e</td><td>Bounded accuracy (AC 10-22, attack +3 to +14)</td><td>Even weak enemies always have a chance to hit. Prevents triviality.</td></tr>
+  <tr><td>GURPS</td><td>3d6 bell curve (not flat d20)</td><td>Extremes are rare. Skill 14 = 90% success. Middle-heavy variance.</td></tr>
+  <tr><td>Savage Worlds</td><td>Exploding dice (all dice can re-roll on max)</td><td>Long tail: weak characters occasionally devastate. Creates upsets.</td></tr>
+  <tr><td>DCSS</td><td>GDR (guaranteed damage reduction)</td><td>Heavy armor ALWAYS blocks something. No zero-armor-benefit rolls.</td></tr>
+  <tr><td>Caves of Qud</td><td>Triple-singlet penetration (3x 1d10 vs armor)</td><td>Clear power thresholds: +6 PV over AV guarantees penetration.</td></tr>
+</table>
+
+<h3>Morale Systems</h3>
+
+<table>
+  <tr><th>Game</th><th>Morale Check</th><th>Cascade?</th></tr>
+  <tr><td>Moldvay D&D</td><td>2d6 > morale (2-12) on first casualty + 50% casualties</td><td>No</td></tr>
+  <tr><td>Battle Brothers</td><td>d100 vs Resolve, 6 states from Confident to Fleeing</td><td>Yes - seeing allies flee triggers checks</td></tr>
+  <tr><td>Mount & Blade</td><td>Party morale (0-99), decay from casualties + no pay</td><td>Yes - low morale causes desertion</td></tr>
+</table>
+
+<p><strong>Your game has no morale system.</strong> This means every fight is to-the-death. Adding <code>2d6 > morale_score</code> after first casualty with cascade on failure would create routs, heroic stands, and tactical "kill the leader" moments.</p>
+
+<!-- ==================== RELATIONSHIPS ==================== -->
+<h2 id="relationships">Romance & Relationship Mechanics</h2>
+
+<h3>How Major Games Track Relationships</h3>
+
+<table>
+  <tr><th>Game</th><th>Scale</th><th>Key Mechanic</th><th>Romance Trigger</th></tr>
+  <tr><td>Dragon Age: Origins</td><td>-100 to +100</td><td>Hard cap at 74 without personal quest</td><td>Approval threshold + dialogue flags</td></tr>
+  <tr><td>Mass Effect 2</td><td>Binary loyalty + flags</td><td>Loyalty mission = binary lock</td><td>Boolean flags in save file, not numeric</td></tr>
+  <tr><td>Baldur's Gate 3</td><td>-50 to +100</td><td>Departure at -50, warnings at -20/-40</td><td>Approval + narrative node</td></tr>
+  <tr><td>Dwarf Fortress</td><td>Rank 0-50+ per pair</td><td>24 facets, non-reciprocal, idle chat increments</td><td>Rank 40 + romantic compatibility</td></tr>
+  <tr><td>CK3</td><td>Sum of modifiers</td><td>3 axes: Opinion, Attraction, AI Tendency</td><td>Trait alignment reduces seduction time</td></tr>
+  <tr><td>Persona</td><td>10 ranks, hidden points</td><td>Dialogue choices + multipliers</td><td>Specific rank + dialogue choice</td></tr>
+  <tr><td>Stardew Valley</td><td>0-2500 (10 hearts)</td><td>Gift formula + daily decay</td><td>Bouquet at 8 hearts unlocks 9-10</td></tr>
+</table>
+
+<h3>The Deep Systems</h3>
+
+<h4>Dwarf Fortress Compatibility (the one to steal)</h4>
+<p>Non-reciprocal. 24 personality facets scored 0-100. Compare pairwise: both >60 or both <40 = positive. One high, one low = negative. Sum across facets = compatibility. Rank increases through idle chats on adjacent tiles. Rank 15 = friendship or grudge (based on compatibility). Rank 40 = lovers if compatible. Rank 50 = marriage. Simple math, emergent complexity.</p>
+
+<h4>Disco Elysium (dialogue as relationship)</h4>
+<p>Kim's trust is a hidden number built entirely from conversation choices. Modifies future skill checks when Kim is present. No gifts, no quests - just how you talk and what you do. Every dialogue choice is a potential +1 or -1 on future interactions. <strong>Your persuasion system should work like this.</strong></p>
+
+<h4>CiF-CK / Comme il Faut (academic gold)</h4>
+<p>Two non-reciprocal social networks (Attraction + Friendship). Theory of Mind (beliefs about others' values, which can be wrong). Volition calculation from microtheories. Deployed as Skyrim mod with 6000+ users, 93% approval. <strong>Paper worth reading:</strong> <a href="https://ar5iv.labs.arxiv.org/html/2207.13398">arXiv</a></p>
+
+<h4>Firewatch (the subtle one)</h4>
+<p>10,000 tracked micro-events. No visible meters. System picks "the truest and most specific thing that can happen next." Interrupting Delilah mid-sentence is mechanically tracked and closes future paths. <strong>Proof that the best relationship tracking is invisible to the player.</strong></p>
+
+<div class="verdict">
+  <div class="verdict-title">Key Takeaway for Your Relationship System</div>
+  <p>Every system researched uses <strong>discrete thresholds</strong> (not gradual curves) for state changes. Every serious system tracks relationships as <strong>non-reciprocal</strong>. The best systems combine <strong>continuous scores</strong> (trust: 0-100) with <strong>discrete flags</strong> (has_saved_life, caught_lying, shared_secret). Your five axes (trust, suspicion, attraction, fear, debt) are reasonable, but you need the math. Write the formulas like you did for combat.</p>
+</div>
+
+<!-- ==================== NPC AI ==================== -->
+<h2 id="npcs">NPC AI & Dialogue Systems</h2>
+
+<h3>The Personality Systems</h3>
+
+<table>
+  <tr><th>Game</th><th>Model</th><th># of Axes</th><th>Key Innovation</th></tr>
+  <tr><td>Dwarf Fortress</td><td>Facets + Values + Goals</td><td>50 facets, 34 values</td><td>Facets gate skill learning. Values change through arguments.</td></tr>
+  <tr><td>RimWorld</td><td>Traits + Needs + Thoughts</td><td>1-3 traits, 7 needs</td><td>Mood = sum of thought offsets. Mental breaks at thresholds.</td></tr>
+  <tr><td>The Sims</td><td>8 Needs + Object Advertisements</td><td>8 needs</td><td>Intelligence in objects, not agents. Attenuation curves.</td></tr>
+  <tr><td>Disco Elysium</td><td>24 Skills as voices</td><td>24 skills</td><td>Skills "speak" as internal voices. Frequency scales with level.</td></tr>
+  <tr><td>CK3</td><td>Traits + Hidden AI values</td><td>~20 traits</td><td>Zealous = +200 Zeal -20 Rationality. Traits drive hidden priorities.</td></tr>
+</table>
+
+<h3>The Sims Advertisement System (steal this for NPC autonomy)</h3>
+<p>Every object/location "advertises" what needs it satisfies. NPC selects action by scoring all available options through personality-weighted attenuation curves. Physiological needs use exponential curves that spike when depleted. Pick randomly from top-scoring options (not absolute best - prevents robotic behavior). <strong>Zero model calls needed for NPC autonomous behavior.</strong></p>
+
+<h3>Facade's NLU (relevant for your interpreter)</h3>
+<p>Permissive template matching extracts discourse acts (intent + sentiment + topic). Doesn't try to fully parse English. When it can't understand, uses deflection. Story decomposed into ~20 dramatic beats, each containing 10-100 joint dialog behaviors. <strong>You don't need perfect language understanding.</strong></p>
+
+<h3>Watch Dogs: Legion "Uprezzing" = Your Tier System</h3>
+<p>Background NPCs are lightweight entities. When profiled, Census generates full identity in real-time. Promotion from background to fully-simulated is your exact Tier 0 → Tier 1 → Tier 2 pattern. Memory spreads to connected NPCs. Pre-computed daily schedules with real-time deviation (Shadows of Doubt) matches your Director's daily pass.</p>
+
+<!-- ==================== WORLD GEN ==================== -->
+<h2 id="worldgen">Procedural World Generation</h2>
+
+<h3>The Key Insight: You Don't Need Geometry</h3>
+<p>For a text RPG, you need the <strong>graph</strong> - which rooms connect to which, what's in each room - not pixel coordinates. MUDs proved 40 years ago that rooms-as-graph-nodes with no inherent coordinates work perfectly for text games. Your spatial tree is already the right data structure.</p>
+
+<h3>Dwarf Fortress Worldgen Pipeline</h3>
+<p>10 phases: fractal terrain → temperature → rivers with erosion → vegetation from field interactions (biomes EMERGE from intersecting layers, not placed directly) → civilization placement → <strong>zero-player strategy game runs for N years</strong> to produce history. History comes from simulation, not authorship.</p>
+
+<h3>For Your Tree Specifically</h3>
+
+<table>
+  <tr><th>Level</th><th>Approach</th><th>Cost</th></tr>
+  <tr><td>World + Regions</td><td>Low-res Perlin noise → terrain types → feed to Opus for civilizations/history</td><td>~$0.30 one-time</td></tr>
+  <tr><td>Cities</td><td>Weighted random tables per city type (port = docks+warehouses, mountain = mines+smithies)</td><td>Free (Python)</td></tr>
+  <tr><td>Districts</td><td>2-5 per city, character derived from city type. Adjacency graph.</td><td>Free</td></tr>
+  <tr><td>Buildings</td><td>Type + size from district probability tables. Seed-based generation on entry.</td><td>Free</td></tr>
+  <tr><td>Rooms</td><td>Count from building type. Brogue accretion or Shadows of Doubt priority placement.</td><td>Free</td></tr>
+</table>
+
+<h3>Lazy Generation + Persistence</h3>
+<p>Derive each building's seed from <code>world_seed + building_id</code>. Generate on entry, discard on exit, regenerate identically on re-entry. Only promote to persistent storage when the player modifies something. Your world can have 10,000 buildings but only store the 50 that changed.</p>
+
+<h3>Key Repos for World Gen</h3>
+<table>
+  <tr><th>Repo</th><th>What</th><th>Why</th></tr>
+  <tr><td><a class="repo-link" href="https://github.com/evennia/evennia">Evennia</a></td><td>Python MUD engine</td><td>Room/Exit/Object pattern, your exact data model</td></tr>
+  <tr><td><a class="repo-link" href="https://github.com/Azgaar/Fantasy-Map-Generator">Azgaar's FMG</a></td><td>19-stage worldgen pipeline</td><td>Stage ordering: terrain → rivers → settlements → politics</td></tr>
+  <tr><td><a class="repo-link" href="https://github.com/Dozed12/df-style-worldgen">df-style-worldgen</a></td><td>Python DF-style terrain + civilization sim</td><td>Directly runnable reference</td></tr>
+  <tr><td><a class="repo-link" href="https://github.com/AtTheMatinee/dungeon-generation">dungeon-generation</a></td><td>Python algorithm comparison</td><td>Side-by-side implementations of BSP, cellular automata, etc.</td></tr>
+  <tr><td><a class="repo-link" href="https://github.com/Mindwerks/worldengine">worldengine</a></td><td>Python plate tectonics + 40 biomes</td><td>Most complete Python worldgen</td></tr>
+</table>
+
+<!-- ==================== MAPPING ==================== -->
+<h2 id="mapping">Component Mapping</h2>
+
+<p>Your system vs. the best existing reference for each component:</p>
+
+<table>
+  <tr><th>Your Component</th><th>Best Reference</th><th>Status</th></tr>
+  <tr><td>Multi-model coordinator (Director)</td><td>RPGGO Zagii Engine</td><td><span class="tag tag-strong">Strong</span></td></tr>
+  <tr><td>Narrator model</td><td>RPGGO (sophisticated), AI Dungeon (simple)</td><td><span class="tag tag-strong">Strong</span></td></tr>
+  <tr><td>NPC stat engine</td><td>Neighborly (ECS + traits), Evennia (object hierarchy)</td><td><span class="tag tag-strong">Strong</span></td></tr>
+  <tr><td>Spatial tree</td><td>Evennia (rooms + exits), CircleMUD (VNUMs)</td><td><span class="tag tag-strong">Strong</span></td></tr>
+  <tr><td>Interpreter (structured output)</td><td>Gigax (Outlines constrained generation)</td><td><span class="tag tag-weak">Fix JSON</span></td></tr>
+  <tr><td>NPC memory + promotion</td><td>Stanford Generative Agents</td><td><span class="tag tag-gap">Not built yet</span></td></tr>
+  <tr><td>Auto-resolve combat</td><td>Mount & Blade, Battle Brothers</td><td><span class="tag tag-weak">Needs depth</span></td></tr>
+  <tr><td>Persuasion via actual words</td><td>Nothing exists (Facade closest)</td><td><span class="tag tag-novel">Novel</span></td></tr>
+  <tr><td>Relationship system</td><td>DF (compatibility), CiF-CK (academic), CK3 (axes)</td><td><span class="tag tag-gap">Not built yet</span></td></tr>
+  <tr><td>World simulation / Director</td><td>Neighborly (multi-gen), TaleWeave (mood/weather)</td><td><span class="tag tag-strong">Strong</span></td></tr>
+  <tr><td>NPC autonomy</td><td>Sims (advertisement system)</td><td><span class="tag tag-gap">Not built yet</span></td></tr>
+  <tr><td>Depth-score → model selection</td><td>Nothing exists</td><td><span class="tag tag-novel">Novel</span></td></tr>
+  <tr><td>Opus as Character Author</td><td>Nothing exists</td><td><span class="tag tag-novel">Novel</span></td></tr>
+  <tr><td>Enemy morale / fleeing</td><td>Battle Brothers, Moldvay D&D</td><td><span class="tag tag-gap">Missing</span></td></tr>
+</table>
+
+<!-- ==================== REPOS ==================== -->
+<h2 id="repos">Key Repos & Papers</h2>
+
+<h3>Must-Read Papers</h3>
+<ul>
+  <li><a href="https://arxiv.org/html/2407.08195v2">RPGGO: Text-to-Game Engine for UGC RPGs (2024)</a> - multi-model RPG architecture</li>
+  <li><a href="https://arxiv.org/abs/2304.03442">Generative Agents: Interactive Simulacra of Human Behavior (Stanford, 2023)</a> - memory/reflection/planning</li>
+  <li><a href="https://ar5iv.labs.arxiv.org/html/2207.13398">CiF-CK: Social NPCs in Skyrim</a> - social exchange framework</li>
+  <li><a href="https://arxiv.org/html/2402.18659v4">LLMs and Games: A Survey and Roadmap (2024)</a> - comprehensive survey</li>
+  <li><a href="https://arxiv.org/html/2511.10277">Fixed-Persona SLMs with Modular Memory (2025)</a> - small models fine-tuned per NPC</li>
+  <li><a href="https://users.soe.ucsc.edu/~michaelm/publications/mateas-gdc2003.pdf">Facade Architecture (Mateas/Stern, 2003)</a> - NLU + drama management</li>
+</ul>
+
+<h3>Must-Study Repos</h3>
+<ul>
+  <li><a class="repo-link" href="https://github.com/evennia/evennia">Evennia</a> (2k stars) - Python MUD engine, your exact spatial data model</li>
+  <li><a class="repo-link" href="https://github.com/joonspk-research/generative_agents">Generative Agents</a> (21k stars) - Stanford paper implementation, Python + Django</li>
+  <li><a class="repo-link" href="https://github.com/GigaxGames/gigax">Gigax</a> (339 stars) - Outlines-based structured NPC generation, fixes your JSON problem</li>
+  <li><a class="repo-link" href="https://github.com/Malacophonous/OrganicWorldsim">OrganicWorldsim</a> - Python NPC sim with ART relationships, closest to your design</li>
+  <li><a class="repo-link" href="https://github.com/ShiJbey/neighborly">Neighborly</a> (74 stars) - ECS settlement sim, trait-based opinions, Python</li>
+  <li><a class="repo-link" href="https://github.com/RPGGO-AI/XTalk">RPGGO XTalk</a> (15 stars) - multi-model game engine, read with the paper</li>
+  <li><a class="repo-link" href="https://github.com/turtle225/Battle-Brothers-Damage-Calculator">BB Damage Calculator</a> - heavily commented Python combat pipeline</li>
+  <li><a class="repo-link" href="https://github.com/Azgaar/Fantasy-Map-Generator">Azgaar's FMG</a> - 19-stage worldgen, study the pipeline ordering</li>
+</ul>
+
+<h3>Must-Read Articles</h3>
+<ul>
+  <li><a href="http://journal.stuffwithstuff.com/2014/12/21/rooms-and-mazes/">Bob Nystrom: Rooms and Mazes</a> - cleanest dungeon generation algorithm</li>
+  <li><a href="https://www.redblobgames.com/maps/terrain-from-noise/">Red Blob Games: Terrain from Noise</a> - the canonical terrain gen tutorial</li>
+  <li><a href="https://gmtk.substack.com/p/the-genius-ai-behind-the-sims">GMTK: The Genius AI Behind The Sims</a> - advertisement system explained</li>
+  <li><a href="https://colepowered.com/shadows-of-doubt-devblog-8-simulating-a-city/">Shadows of Doubt: Simulating a City</a> - NPC schedules + uprezzing</li>
+  <li><a href="https://www.gabrielchauri.com/disco-elysium-rpg-system-analysis/">Disco Elysium RPG System Analysis</a> - full mechanical breakdown</li>
+  <li><a href="https://dwarffortresswiki.org/index.php/Relationship">DF Wiki: Relationships</a> - complete compatibility math</li>
+</ul>
+
+<hr class="divider">
+
+<p style="color: var(--text-dim); font-size: 0.85em; text-align: center; margin-top: 40px;">
+  Research compiled by five parallel agents, April 5, 2026.<br>
+  Raw research files in <code>/research/*.md</code>. Full worldgen detail in <code>WORLDGEN-RESEARCH.md</code>.
+</p>
+
+</body>
+</html>
