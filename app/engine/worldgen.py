@@ -29,12 +29,12 @@ REGION_TYPES = ["coastal", "plains", "forest", "mountain", "river valley", "step
 CITY_TEMPLATES = {
     "capital": {
         "population_range": (80_000, 300_000),
-        "districts": ["market", "noble", "temple", "docks", "slums", "barracks", "craftsmen", "university"],
+        "districts": ["market", "noble", "temple", "docks", "barracks", "university"],
         "danger": 15,
     },
     "major_city": {
         "population_range": (20_000, 80_000),
-        "districts": ["market", "residential", "temple", "craftsmen", "docks"],
+        "districts": ["market", "residential", "temple", "docks"],
         "danger": 20,
     },
     "town": {
@@ -56,17 +56,17 @@ CITY_TEMPLATES = {
 
 # Buildings that appear in each district type
 DISTRICT_BUILDINGS = {
-    "market": ["tavern", "general store", "blacksmith", "market stalls", "warehouse"],
-    "noble": ["manor house", "gardens", "estate", "guard house"],
-    "temple": ["temple", "monastery", "graveyard", "hospice"],
-    "docks": ["harbor master", "tavern", "fishmarket", "warehouse", "shipyard"],
-    "slums": ["flophouse", "alley", "pawnshop", "underground den"],
-    "barracks": ["barracks", "training yard", "armory", "officer quarters"],
-    "craftsmen": ["workshop", "tanner", "weaver", "pottery"],
-    "university": ["library", "lecture hall", "dormitory", "observatory"],
-    "residential": ["inn", "houses", "well", "chapel"],
-    "square": ["tavern", "market stalls", "well", "notice board"],
-    "yard": ["watchtower", "supply tent", "stable"],
+    "market": ["tavern", "general store", "blacksmith"],
+    "noble": ["manor house", "gardens", "guard house"],
+    "temple": ["temple", "graveyard", "hospice"],
+    "docks": ["harbor master", "tavern", "warehouse"],
+    "slums": ["flophouse", "pawnshop", "alley"],
+    "barracks": ["barracks", "training yard", "armory"],
+    "craftsmen": ["workshop", "tanner", "pottery"],
+    "university": ["library", "lecture hall", "observatory"],
+    "residential": ["inn", "chapel", "well"],
+    "square": ["tavern", "market stalls", "notice board"],
+    "yard": ["watchtower", "stable"],
 }
 
 # Name parts for procedural generation

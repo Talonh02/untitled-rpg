@@ -348,15 +348,14 @@ class GameLoop:
             npc.relationship = Relationship()
         npc.relationship.interactions += 1
 
-        # First meeting: generate their personality
+        # First meeting: promote higher-tier NPCs with Character Author
         if first_meeting:
-            if npc.fate < 0.15:
-                # Common people get a basic prompt (free, no Character Author call)
-                # They're normal people — they'll answer you, just not be deep
-                npc.system_prompt = self._generate_basic_prompt(npc)
-            else:
-                # Higher tier NPCs get the full Character Author treatment
+            if npc.fate >= 0.15 and not npc.system_prompt:
+                # Uncommon+ NPCs get the full Character Author treatment
                 self._promote_npc(npc)
+            elif not npc.system_prompt:
+                # Fallback: generate basic prompt if somehow missing
+                npc.system_prompt = self._generate_basic_prompt(npc)
 
         # Build NPC context and call their model
         # Use dialogue_content (extracted speech) first, then raw_input (what they typed),

@@ -12,6 +12,62 @@ import math
 from app.data import NPC, Stats, World, ENTITY_TIER_MULTIPLIERS
 
 
+# Simple goals for common NPCs (Python-generated, no Claude needed)
+COMMON_GOALS = [
+    "save enough coin to leave this town",
+    "find a decent partner to settle down with",
+    "keep your family fed through the winter",
+    "pay off a debt to a merchant",
+    "get revenge on a neighbor who wronged you",
+    "drink enough to forget your troubles",
+    "protect your children from the dangers of the road",
+    "prove yourself to someone who doubts you",
+    "find out what happened to a missing friend",
+    "earn enough to buy a small plot of land",
+    "avoid the attention of the local lord",
+    "get your son out of the army before the war starts",
+    "learn to read before you die",
+    "win back someone who left you",
+    "survive another year",
+    "make it to the coast — you've never seen the sea",
+    "find work that doesn't break your back",
+    "get your stolen property back from a thief",
+]
+
+COMMON_OPINIONS = [
+    "the war is pointless — just rich men sending poor men to die",
+    "the new taxes are crushing everyone",
+    "things were better before the king died",
+    "the merchants are the real power in this town",
+    "there's something wrong in the hills — animals are acting strange",
+    "the guards can't be trusted after dark",
+    "rain's coming — you can feel it in your bones",
+    "the temple takes too much and gives too little",
+    "strangers bring trouble, always have",
+    "it's not safe to travel anymore, not with bandits on the roads",
+    "the old ways are dying and nobody cares",
+    "at least the ale is still cheap",
+    "someone's been stealing chickens — everyone knows who but nobody says",
+    "the blacksmith's prices have gone through the roof",
+    "used to be you could leave your door unlocked",
+]
+
+COMMON_GOSSIP = [
+    "the blacksmith's daughter ran off with a traveler last week",
+    "they found a body by the river — nobody's talking about it",
+    "the innkeeper waters down the ale, everyone knows",
+    "someone saw lights in the old tower at night",
+    "the merchant guild is buying up all the grain — price is going to spike",
+    "a stranger arrived last week asking about the old mines",
+    "the captain of the guard has been drinking heavily since the news from the east",
+    "there's a healer in the next town who can cure anything, they say",
+    "the lord's son was seen at the tavern again — his father would be furious",
+    "wolves have been coming closer to town this autumn",
+    "there was a fight at the docks — two men stabbed over a card game",
+    "the old woman on the hill says winter will come early this year",
+]
+
+
 # ============================================================
 # CAUSAL CHAIN: Role → Fate → Stats → Everything Else
 # ============================================================
@@ -190,13 +246,47 @@ def generate_npc(occupation, name=None, age=None, location="") -> NPC:
 
     npc_id = f"npc_{name.lower()}_{random.randint(100, 999)}"
 
-    return NPC(
+    npc = NPC(
         id=npc_id, name=name, age=age, fate=fate,
         stats=stats, occupation=occupation,
         social_class=social_class, wealth=wealth,
         temperament=temperament, power_tier=power_tier,
         weapon=weapon, armor=armor, location=location,
     )
+
+    # Give every NPC a basic personality — even commons deserve to be people
+    goal = random.choice(COMMON_GOALS)
+    opinion = random.choice(COMMON_OPINIONS)
+    gossip = random.choice(COMMON_GOSSIP)
+
+    # Build traits from stats (reusing logic from loop.py's _generate_basic_prompt)
+    traits = []
+    if stats.intelligence > 60: traits.append("articulate")
+    elif stats.intelligence < 30: traits.append("simple-spoken")
+    if stats.empathy > 60: traits.append("friendly")
+    elif stats.empathy < 30: traits.append("brusque")
+    if stats.humor > 60: traits.append("quick to joke")
+    if stats.courage > 70: traits.append("confident")
+    elif stats.courage < 25: traits.append("nervous")
+    if temperament == "cheerful": traits.append("cheerful")
+    elif temperament == "melancholy": traits.append("weary")
+    elif temperament == "cold": traits.append("guarded")
+    trait_str = ", ".join(traits) if traits else "ordinary"
+
+    npc.system_prompt = (
+        f"You are {npc.name}, a {age}-year-old {occupation}. "
+        f"You are {trait_str}. "
+        f"What you want: {goal}. "
+        f"Your opinion: {opinion}. "
+        f"Local gossip you know: {gossip}. "
+        f"You're a normal person. You can hold a conversation, share opinions, "
+        f"give directions, complain, joke, flirt, or get angry if provoked. "
+        f"If someone does something strange, react like a real person would — "
+        f"confused, alarmed, amused, or annoyed depending on what happened. "
+        f"Keep responses to 1-3 sentences unless the topic is something you care about."
+    )
+
+    return npc
 
 
 # ============================================================
