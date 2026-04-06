@@ -14,8 +14,8 @@ import random
 import math
 
 from app.data import (
-    Stats, NPC, Player, CombatOutcome, Injury,
-    WEAPONS, ARMOR, WEAPON_ARMOR_MATRIX
+    Stats, NPC, Player, CombatOutcome, Injury, Unit,
+    WEAPONS, ARMOR, WEAPON_ARMOR_MATRIX, ENTITY_TIER_MULTIPLIERS
 )
 from app.config import GAME_CONSTANTS
 
@@ -98,6 +98,90 @@ CRITICAL_INJURIES = [
 ]
 
 
+# ============================================================
+# LOSS ENGINE — smooth margin-based damage for individuals and units
+# ============================================================
+
+def calculate_hp_damage(margin, armor_name="none"):
+    """
+    Calculate HP damage from combat based on margin of victory.
+    Smooth curve — winners get scratched, losers get hurt badly.
+
+    margin  0.5 → ~5 HP  (crushing victory, barely touched)
+    margin  0.15 → ~25 HP (narrow win, took some hits)
+    margin  0.0 → ~40 HP  (dead even, both sides bloodied)
+    margin -0.15 → ~55 HP (narrow loss, serious damage)
+    margin -0.5 → ~80 HP  (crushing defeat, nearly killed)
+    """
+    # Base damage: scales inversely with margin
+    base = max(0, 45 - margin * 80)
+
+    # Armor reduces damage (plate=30 → 15% reduction)
+    armor_defense = ARMOR.get(armor_name, ARMOR["none"])["defense"]
+    armor_factor = 1.0 - (armor_defense / 100.0) * 0.5
+
+    damage = base * armor_factor * random.uniform(0.8, 1.2)
+    return max(0, int(damage))
+
+
+def calculate_unit_losses(unit, margin, is_winner):
+    """
+    Calculate casualties for a unit after combat. Three phases:
+
+    1. CLASH — initial engagement losses (margin-based)
+    2. ARMOR MITIGATION — better-armored units lose fewer
+    3. ROUT — if morale breaks, fleeing troops get cut down (15-35% extra)
+
+    Returns dict: {battle_losses, rout_losses, total, morale_after, routed}
+    """
+    # --- Phase 1: Clash casualties from margin ---
+    if is_winner:
+        # Winners lose 2-15% (less with bigger margin)
+        base_rate = max(0.02, 0.15 - abs(margin) * 0.3)
+    else:
+        # Losers lose 15-70% (more with bigger margin)
+        base_rate = min(0.70, 0.15 + abs(margin) * 0.7)
+
+    # --- Phase 2: Armor mitigation ---
+    # Plate (defense=30) reduces casualty rate by ~12%
+    armor_defense = ARMOR.get(unit.armor, ARMOR["none"])["defense"]
+    armor_factor = 1.0 - (armor_defense / 100.0) * 0.4
+    base_rate *= armor_factor
+
+    # Randomness ±25%
+    base_rate *= random.uniform(0.75, 1.25)
+    base_rate = max(0.01, min(0.85, base_rate))
+
+    battle_losses = max(1, int(unit.count * base_rate))
+
+    # --- Phase 3: Rout ---
+    # If morale will drop below 20, the unit breaks.
+    # Fleeing troops get cut down — 15-35% of survivors die in the rout.
+    morale_hit = int(base_rate * 30)
+    projected_morale = unit.morale - morale_hit
+    routed = projected_morale < 20
+
+    rout_losses = 0
+    if routed:
+        remaining_after_clash = unit.count - battle_losses
+        rout_rate = random.uniform(0.15, 0.35)
+        rout_losses = max(0, int(remaining_after_clash * rout_rate))
+
+    total = min(battle_losses + rout_losses, unit.count - 1)  # at least 1 survivor
+
+    # Apply casualties and morale
+    unit.count = max(1, unit.count - total)
+    unit.morale = max(0, unit.morale - morale_hit - (15 if routed else 0))
+
+    return {
+        "battle_losses": battle_losses,
+        "rout_losses": rout_losses,
+        "total": total,
+        "morale_after": unit.morale,
+        "routed": routed,
+    }
+
+
 def _get_weapon_data(weapon_name):
     """Look up weapon multiplier and other data. Falls back to unarmed."""
     return WEAPONS.get(weapon_name, WEAPONS["unarmed"])
@@ -118,15 +202,20 @@ def _get_armor_defense(armor_name):
 def _calculate_cpr(combatant):
     """
     Calculate a combatant's raw Combat Power Rating.
-    CPR = (strength*0.25 + agility*0.25 + toughness*0.20 +
-           courage*0.10 + perception*0.10 + willpower*0.10) * power_tier_multiplier
+    For individuals: base_stats * power_tier
+    For Units: base_stats * power_tier * numbers_advantage(count)
 
-    Power tier makes non-human entities dramatically stronger:
-    human=1x, exceptional=2.5x, superhuman=6x, dragon=25x, divine=100x
+    Power tier: human=1x, exceptional=2.5x, superhuman=6x, dragon=25x, divine=100x
+    Numbers advantage: 1 + log2(count) * 0.7
     """
-    from app.data import ENTITY_TIER_MULTIPLIERS
+    # Units include numbers advantage in their CPR
+    if isinstance(combatant, Unit):
+        base_cpr = combatant.stats.combat_power()
+        tier_mult = ENTITY_TIER_MULTIPLIERS.get(combatant.power_tier, 1.0)
+        numbers_mult = 1.0 + math.log2(max(1, combatant.count)) * 0.7
+        return base_cpr * tier_mult * numbers_mult
 
-    # Get effective stats (with injury penalties applied)
+    # Individual NPC or Player
     if hasattr(combatant, "get_effective_stats"):
         stats = combatant.get_effective_stats()
     elif hasattr(combatant, "stats"):
@@ -135,8 +224,6 @@ def _calculate_cpr(combatant):
         return 42.0  # fallback for broken data
 
     base_cpr = stats.combat_power()
-
-    # Apply entity power tier (humans are 1x, dragons are 25x, etc.)
     power_tier = getattr(combatant, "power_tier", 1)
     tier_mult = ENTITY_TIER_MULTIPLIERS.get(power_tier, 1.0)
 
@@ -363,6 +450,23 @@ def resolve_combat(player, enemies, companions=None, context=None):
         if status in ("fights_bravely", "fights_reluctantly"):
             fighting_companions.append((comp, status))
 
+    # --- Step 1b: Player-side units (hired mercs, etc.) ---
+    # Units bypass companion participation check — they're paid to fight.
+    player_units = context.get("player_units", [])
+    for unit in player_units:
+        if unit.should_flee():
+            companion_outcomes.append({
+                "name": unit.name, "id": unit.id, "status": "fled",
+                "count": unit.count,
+            })
+        else:
+            companion_outcomes.append({
+                "name": unit.name, "id": unit.id, "status": "fights_bravely",
+                "count": unit.count,
+            })
+            # Units add their full effective_cpr (includes numbers advantage)
+            fighting_companions.append((unit, "fights_bravely"))
+
     # --- Step 2: Calculate player side's total combat power ---
     # Figure out the most common enemy armor for weapon effectiveness lookup
     enemy_armors = [_get_combatant_armor(e) for e in enemies]
@@ -480,13 +584,47 @@ def resolve_combat(player, enemies, companions=None, context=None):
     # --- Step 9: Roll injuries for the player ---
     player_injuries = roll_injuries(margin, player_armor)
 
-    # --- Step 10: Roll death for enemies (and count kills) ---
+    # --- Step 10: Apply casualties using the loss engine ---
     enemy_deaths = 0
+    unit_casualties = []
+
     for enemy in enemies:
-        # Enemies use the negative margin (they lost if margin > 0)
-        if roll_death(-margin, enemy, is_player=False):
-            enemy.is_alive = False
-            enemy_deaths += 1
+        if isinstance(enemy, Unit):
+            is_winner = (margin < 0)  # enemy wins if margin is negative
+            before = enemy.count
+            report = calculate_unit_losses(enemy, margin, is_winner)
+            enemy_deaths += report["total"]
+            unit_casualties.append({
+                "name": enemy.name, "side": "enemy",
+                "before": before,
+                "battle_losses": report["battle_losses"],
+                "rout_losses": report["rout_losses"],
+                "losses": report["total"],
+                "after": enemy.count,
+                "routed": report["routed"],
+                "morale": report["morale_after"],
+            })
+        else:
+            if roll_death(-margin, enemy, is_player=False):
+                enemy.is_alive = False
+                enemy_deaths += 1
+
+    # Player-side unit casualties
+    for unit in player_units:
+        if isinstance(unit, Unit) and unit.count > 0:
+            is_winner = (margin > 0)
+            before = unit.count
+            report = calculate_unit_losses(unit, margin, is_winner)
+            unit_casualties.append({
+                "name": unit.name, "side": "player",
+                "before": before,
+                "battle_losses": report["battle_losses"],
+                "rout_losses": report["rout_losses"],
+                "losses": report["total"],
+                "after": unit.count,
+                "routed": report["routed"],
+                "morale": report["morale_after"],
+            })
 
     # --- Step 11: Check player death ---
     player_death_result = roll_death(margin, player, is_player=True)
@@ -524,6 +662,17 @@ def resolve_combat(player, enemies, companions=None, context=None):
     if enemy_deaths > 0:
         notable.append(f"{enemy_deaths} enem{'y' if enemy_deaths == 1 else 'ies'} killed.")
 
+    # Add unit casualty reports to notable moments (narrator uses these for prose)
+    for uc in unit_casualties:
+        side_label = "Your" if uc["side"] == "player" else "Enemy"
+        line = f"{side_label} {uc['name']}: {uc['battle_losses']} fell in the clash"
+        if uc.get("rout_losses", 0) > 0:
+            line += f", {uc['rout_losses']} more cut down in the rout"
+        line += f". {uc['after']} of {uc['before']} remain."
+        if uc.get("routed"):
+            line += " They broke and scattered."
+        notable.append(line)
+
     return CombatOutcome(
         result=result,
         margin=margin,
@@ -534,4 +683,5 @@ def resolve_combat(player, enemies, companions=None, context=None):
         companion_outcomes=companion_outcomes,
         enemy_deaths=enemy_deaths,
         notable_moments=notable,
+        unit_casualties=unit_casualties,
     )

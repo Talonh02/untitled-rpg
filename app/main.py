@@ -388,7 +388,8 @@ def _placeholder_world() -> World:
         id=town_id, name="Haven", type="city",
         description="A small town on the edge of something larger. "
                     "Smoke rises from chimneys. People move with purpose.",
-        children_ids=["haven_square", "haven_tavern", "haven_market"],
+        children_ids=["haven_square"],
+        population=4200,
     )
     world.locations["haven_square"] = Location(
         id="haven_square", name="Town Square", type="district",
@@ -396,18 +397,21 @@ def _placeholder_world() -> World:
                     "A few vendors are packing up for the evening.",
         parent_id=town_id,
         children_ids=["haven_tavern", "haven_market"],
+        population=800,
     )
     world.locations["haven_tavern"] = Location(
         id="haven_tavern", name="The Quiet Drum", type="building",
         description="A tavern. Low ceiling, warm light, the smell of bread and ale. "
                     "A few people sit at tables. A dog sleeps by the fire.",
         parent_id="haven_square",
+        population=25,
     )
     world.locations["haven_market"] = Location(
         id="haven_market", name="Market Row", type="building",
         description="A narrow street lined with merchant stalls. "
                     "Most are closed, but a few lanterns still flicker.",
         parent_id="haven_square",
+        population=150,
     )
 
     # A few NPCs to populate the town

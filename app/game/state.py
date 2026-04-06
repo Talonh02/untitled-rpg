@@ -8,7 +8,7 @@ from typing import Optional
 
 from app.data import (
     GameState, World, Player, NPC, Location, Road, Stats,
-    Relationship, Injury, WEAPONS, ARMOR
+    Relationship, Injury, Unit, WEAPONS, ARMOR
 )
 from app.config import GAME_CONSTANTS
 
@@ -99,6 +99,8 @@ def _serialize_world(world: World) -> dict:
         "active_conflicts": world.active_conflicts,
         # Fix #17: serialize world.items
         "items": {iid: item.to_dict() for iid, item in world.items.items()},
+        # Units (armies, merc bands, patrols)
+        "units": {uid: unit.to_dict() for uid, unit in world.units.items()},
     }
 
 
@@ -126,6 +128,7 @@ def _deserialize_world(d: dict) -> World:
             coordinates=tuple(coords),
             terrain=loc_data.get("terrain", ""),
             mood=loc_data.get("mood", ""),
+            population=loc_data.get("population", 0),
             # Fix #17: restore dungeon fields
             is_dungeon=loc_data.get("is_dungeon", False),
             locked=loc_data.get("locked", False),
@@ -167,6 +170,9 @@ def _deserialize_world(d: dict) -> World:
     from app.data import Item
     for iid, item_data in d.get("items", {}).items():
         w.items[iid] = Item(**{k: v for k, v in item_data.items() if k in Item.__dataclass_fields__})
+    # Restore units
+    for uid, unit_data in d.get("units", {}).items():
+        w.units[uid] = Unit.from_dict(unit_data)
     return w
 
 
@@ -221,6 +227,7 @@ def _deserialize_npc(d: dict) -> NPC:
         relationship=rel,
         knowledge_tags=d.get("knowledge_tags", []),
         injuries=injuries,
+        personal_log=d.get("personal_log", []),
         schedule_template=d.get("schedule_template", ""),  # Fix #17: restore schedule_template
         power_tier=d.get("power_tier", 1),  # Fix #17: restore power_tier
         is_companion=d.get("is_companion", False),
@@ -257,6 +264,7 @@ def _deserialize_player(d: dict) -> Player:
         inventory=d.get("inventory", []),
         knowledge_log=d.get("knowledge_log", []),
         companions=d.get("companions", []),
+        hired_units=d.get("hired_units", []),
         injuries=injuries,
         reputation=d.get("reputation", {}),
         days_alive=d.get("days_alive", 0),
@@ -341,18 +349,179 @@ def assemble_scene_context(game_state: GameState) -> str:
     return "\n".join(parts)
 
 
+def generate_world_briefing(game_state: GameState, fate_tier: str = "common") -> str:
+    """
+    Build a world briefing from game state. Programmatic, no model call, free.
+    Everyone gets the base briefing (world state + major events + local news).
+    Higher fate tiers get additional sections (politics, secrets, analysis).
+
+    This is what makes even a common farmer able to say
+    "Heard the king died. Bad business."
+    """
+    world = game_state.world
+    player = game_state.player
+    sections = []
+
+    # === BASE BRIEFING (everyone gets this — ~150 tokens) ===
+
+    # World + time
+    world_line = f"World: {world.name or 'unnamed'}."
+    if world.era:
+        world_line += f" Era: {world.era}."
+    world_line += f" {world.season.capitalize()}, day {world.current_day}. {world.time_slot.capitalize()}."
+    sections.append(world_line)
+
+    # Major events (from events_log — the Director generates these)
+    if world.events_log:
+        event_lines = []
+        for evt in world.events_log[-6:]:
+            if isinstance(evt, dict):
+                desc = evt.get("description", str(evt))
+                day = evt.get("day", "?")
+                event_lines.append(f"- Day {day}: {desc}")
+            else:
+                event_lines.append(f"- {evt}")
+        if event_lines:
+            sections.append("Recent events everyone has heard about:\n" + "\n".join(event_lines))
+
+    # Active conflicts
+    if world.active_conflicts:
+        conflict_lines = []
+        for c in world.active_conflicts[:3]:
+            if isinstance(c, dict):
+                conflict_lines.append(f"- {c.get('name', 'Unknown conflict')}: {c.get('current_status', 'ongoing')}")
+            else:
+                conflict_lines.append(f"- {c}")
+        if conflict_lines:
+            sections.append("Wars and conflicts:\n" + "\n".join(conflict_lines))
+
+    # Local news (based on player's current location)
+    loc = world.locations.get(player.location) if player else None
+    city = world.get_city_for_location(player.location) if player else None
+    local_lines = []
+    if city:
+        local_lines.append(f"You are in {city.name} (population ~{city.population:,})." if city.population else f"You are in {city.name}.")
+        if city.economy:
+            local_lines.append(f"Local economy: {city.economy}.")
+    if loc and loc != city:
+        local_lines.append(f"Specifically: {loc.name} ({loc.type}).")
+    if local_lines:
+        sections.append("Local:\n" + "\n".join(f"- {l}" for l in local_lines))
+
+    # World tone/themes (flavor)
+    if world.themes:
+        sections.append(f"The mood of the times: {', '.join(world.themes[:3])}.")
+
+    base_briefing = "\n\n".join(sections)
+
+    # === HIGHER TIER ADDITIONS ===
+    # Tiers: common, uncommon, rare, epic, legendary, mythic
+    tier_order = ["common", "uncommon", "rare", "epic", "legendary", "mythic"]
+    tier_idx = tier_order.index(fate_tier) if fate_tier in tier_order else 0
+
+    extras = []
+
+    # Uncommon+ : faction standings
+    if tier_idx >= 1 and world.factions:
+        faction_lines = []
+        for fname, fdata in list(world.factions.items())[:5]:
+            if isinstance(fdata, dict):
+                goals = fdata.get("goals", [])
+                strength = fdata.get("strength", "?")
+                faction_lines.append(f"- {fname}: strength {strength}. {goals[0] if goals else ''}")
+            else:
+                faction_lines.append(f"- {fname}: {fdata}")
+        if faction_lines:
+            extras.append("Factions you've heard of:\n" + "\n".join(faction_lines))
+
+    # Rare+: economy, religion, intellectual climate
+    if tier_idx >= 2:
+        if world.economy_info:
+            extras.append(f"Economy: {str(world.economy_info)[:200]}")
+        if world.religion:
+            rel_summary = world.religion.get("name", str(world.religion)[:100])
+            extras.append(f"Religion: {rel_summary}")
+        if world.intellectual_traditions:
+            names = []
+            for t in world.intellectual_traditions[:3]:
+                names.append(t.get("name", str(t)) if isinstance(t, dict) else str(t))
+            extras.append(f"Intellectual traditions: {', '.join(names)}")
+
+    # Epic+: player reputation
+    if tier_idx >= 3 and player and player.reputation:
+        rep_lines = []
+        for region, rep_data in list(player.reputation.items())[:3]:
+            if isinstance(rep_data, dict):
+                rep_lines.append(f"- In {region}: {rep_data.get('sentiment', 'unknown')}")
+            else:
+                rep_lines.append(f"- {region}: {rep_data}")
+        if rep_lines:
+            extras.append("What people say about the player:\n" + "\n".join(rep_lines))
+        if player.kills > 0:
+            extras.append(f"The player has killed {player.kills} {'person' if player.kills == 1 else 'people'}.")
+
+    # Legendary+: key NPCs and their movements
+    if tier_idx >= 4:
+        important = [n for n in world.npcs.values() if n.fate > 0.5 and n.is_alive]
+        if important:
+            npc_lines = []
+            for n in sorted(important, key=lambda x: -x.fate)[:5]:
+                nloc = world.locations.get(n.location)
+                loc_name = nloc.name if nloc else "unknown"
+                npc_lines.append(f"- {n.name} ({n.occupation}, fate {n.fate:.1f}) at {loc_name}")
+            extras.append("Key figures:\n" + "\n".join(npc_lines))
+
+    # Mythic: antagonist, secrets, hidden truths
+    if tier_idx >= 5:
+        if world.antagonist:
+            ant = world.antagonist
+            extras.append(f"The great threat: {ant.get('name', 'Unknown')} — {ant.get('current_status', 'active')}.")
+        if world.lore_index:
+            secret_keys = list(world.lore_index.keys())[:3]
+            secrets = [world.lore_index[k] for k in secret_keys]
+            if secrets:
+                extras.append("Things few know:\n" + "\n".join(f"- {s}" for s in secrets))
+
+    if extras:
+        return base_briefing + "\n\n" + "\n\n".join(extras)
+    return base_briefing
+
+
 def assemble_npc_context(npc: NPC, game_state: GameState) -> str:
     """
     Build the full context for an NPC model call.
-    Includes their system prompt + relationship data + relevant lore.
+    Includes: system prompt + world briefing (scaled by fate tier) +
+    relationship data + lore + injuries.
     """
     parts = []
 
-    # 1. The NPC's system prompt (their personality — written by Character Author)
+    # 1. The NPC's system prompt (personality) + universal speech rules
     if npc.system_prompt:
         parts.append(npc.system_prompt)
+    parts.append(
+        "[RULES: Speak directly as yourself in first person. Just talk — no narrating "
+        "your own actions, gestures, or expressions in italics or asterisks. "
+        "No *I lean back* or *she pauses*. Only your words.]"
+    )
 
-    # 2. Relationship with player (if any)
+    # 2. World briefing — everyone gets the base, higher tiers get more
+    fate = npc.fate
+    if fate >= 0.85:
+        tier = "mythic"
+    elif fate >= 0.70:
+        tier = "legendary"
+    elif fate >= 0.50:
+        tier = "epic"
+    elif fate >= 0.30:
+        tier = "rare"
+    elif fate >= 0.15:
+        tier = "uncommon"
+    else:
+        tier = "common"
+    briefing = generate_world_briefing(game_state, tier)
+    parts.append(f"\n[WORLD STATE — what you know about the world:]\n{briefing}")
+
+    # 3. Relationship with player (if any)
     if npc.relationship:
         rel = npc.relationship
         parts.append(f"\n[Relationship with player: {rel.stage}, "
@@ -361,25 +530,62 @@ def assemble_npc_context(npc: NPC, game_state: GameState) -> str:
         if rel.knowledge_of_player:
             parts.append(f"[You know about the player: {', '.join(rel.knowledge_of_player[-5:])}]")
         if rel.last_summary:
-            parts.append(f"[Last interaction: {rel.last_summary}]")
+            # Calculate how long ago the last interaction was
+            time_ago = ""
+            last_day_flags = [f for f in rel.flags if f.startswith("last_day:")]
+            if last_day_flags:
+                try:
+                    last_day = int(last_day_flags[-1].split(":")[1])
+                    days_since = game_state.world.current_day - last_day
+                    if days_since == 0:
+                        time_ago = "earlier today"
+                    elif days_since == 1:
+                        time_ago = "yesterday"
+                    elif days_since < 7:
+                        time_ago = f"{days_since} days ago"
+                    elif days_since < 30:
+                        weeks = days_since // 7
+                        time_ago = f"about {weeks} week{'s' if weeks > 1 else ''} ago"
+                    elif days_since < 90:
+                        months = days_since // 30
+                        time_ago = f"about {months} month{'s' if months > 1 else ''} ago"
+                    else:
+                        months = days_since // 30
+                        time_ago = f"{months} months ago — a long time"
+                except (ValueError, IndexError):
+                    pass
+            time_str = f" ({time_ago})" if time_ago else ""
+            parts.append(f"[Last interaction{time_str}: {rel.last_summary}]")
 
-    # 3. Current situation
+    # 4. Current situation
     world = game_state.world
     loc = world.locations.get(npc.location)
     if loc:
         parts.append(f"\n[You are in {loc.name}. It is {world.time_slot}, {world.season}.]")
 
-    # 4. Lore snippets matching this NPC's knowledge tags
-    #    Only inject lore that matches the NPC's tags — prevents all-knowing NPCs
+    # 5. Lore snippets matching this NPC's knowledge tags (on top of world briefing)
     if npc.knowledge_tags and world.lore_index:
         relevant_lore = []
         for tag in npc.knowledge_tags:
             if tag in world.lore_index:
                 relevant_lore.append(world.lore_index[tag])
         if relevant_lore:
-            parts.append(f"\n[Your knowledge: {' '.join(relevant_lore[:3])}]")
+            parts.append(f"\n[Specialist knowledge: {' '.join(relevant_lore[:3])}]")
 
-    # 5. Mood/injuries affecting behavior
+    # 6. Personal log — what's happened in their life recently
+    if hasattr(npc, 'personal_log') and npc.personal_log:
+        # Scale how much personal history they share by tier
+        if tier_idx >= 4:  # legendary+: full log
+            log_entries = npc.personal_log[-10:]
+        elif tier_idx >= 2:  # rare+: recent entries
+            log_entries = npc.personal_log[-5:]
+        else:  # uncommon: just the highlights
+            log_entries = npc.personal_log[-3:]
+        if log_entries:
+            parts.append("\n[What's been happening in your life recently:]\n" +
+                         "\n".join(f"  {entry}" for entry in log_entries))
+
+    # 7. Mood/injuries affecting behavior
     if npc.injuries:
         injury_names = [i.name if isinstance(i, Injury) else str(i) for i in npc.injuries]
         parts.append(f"[You are currently injured: {', '.join(injury_names)}]")

@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Untitled RPG</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,600&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <!-- ======== TITLE SCREEN ======== -->
+    <div id="menu-screen" class="screen active">
+        <div class="menu-content">
+            <h1 class="title">Untitled RPG</h1>
+            <p class="subtitle">Where models speak and Python thinks.</p>
+            <div class="menu-options">
+                <button onclick="showCreation()">New Game</button>
+                <button onclick="loadGame()">Load Game</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ======== CHARACTER CREATION ======== -->
+    <div id="creation-screen" class="screen">
+        <div class="creation-content">
+            <h2>Create Your Character</h2>
+
+            <div class="creation-field">
+                <label for="char-name">Name</label>
+                <input type="text" id="char-name" placeholder="What is your name?" autofocus>
+            </div>
+
+            <div class="creation-tabs">
+                <button class="tab active" data-type="quick" onclick="setCreationType('quick', this)">Choose Archetype</button>
+                <button class="tab" data-type="custom" onclick="setCreationType('custom', this)">Describe Yourself</button>
+            </div>
+
+            <div id="quick-creation">
+                <div id="archetype-list"></div>
+            </div>
+
+            <div id="custom-creation" style="display:none;">
+                <textarea id="char-description" rows="4"
+                    placeholder="Describe yourself in real-world terms. The AI will translate your traits into the game world.&#10;&#10;Example: finance degree, philosopher, Canadian, 5'10, former wrestler"></textarea>
+            </div>
+
+            <button class="start-btn" onclick="startGame()">Begin Your Journey</button>
+
+            <div id="loading" style="display:none;">
+                <div class="loading-text">Generating world<span class="dots"></span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ======== GAME SCREEN ======== -->
+    <div id="game-screen" class="screen">
+        <!-- Time bar across the top -->
+        <div class="time-bar">
+            <span id="time-display"></span>
+            <div class="time-actions">
+                <button onclick="saveGame()" class="small-btn">Save</button>
+            </div>
+        </div>
+
+        <div class="game-layout">
+            <!-- LEFT PANEL: World state -->
+            <div class="panel left-panel">
+                <div class="panel-section">
+                    <h3>Location</h3>
+                    <div id="location-info"></div>
+                </div>
+
+                <div class="panel-section">
+                    <h3>People Here</h3>
+                    <div id="npc-list"></div>
+                </div>
+
+                <div class="panel-section">
+                    <h3>Nearby</h3>
+                    <div id="nearby-list"></div>
+                </div>
+            </div>
+
+            <!-- CENTER: Narrative + input -->
+            <div class="center-panel">
+                <div id="narrative-log"></div>
+
+                <div class="action-bar">
+                    <div id="action-buttons"></div>
+                    <div class="input-row">
+                        <input type="text" id="player-input" placeholder="What do you do?" autocomplete="off">
+                        <button onclick="submitAction()" id="send-btn" title="Send">&rarr;</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT PANEL: Self -->
+            <div class="panel right-panel">
+                <div class="panel-section vitals">
+                    <h3 id="player-name">You</h3>
+                    <div id="vitals"></div>
+                </div>
+
+                <div class="panel-section equipment-section">
+                    <div id="equipment"></div>
+                </div>
+
+                <div class="tab-bar">
+                    <button class="tab active" onclick="switchTab('stats', this)">Stats</button>
+                    <button class="tab" onclick="switchTab('inventory', this)">Inv</button>
+                    <button class="tab" onclick="switchTab('journal', this)">Journal</button>
+                    <button class="tab" onclick="switchTab('lore', this)">Lore</button>
+                    <button class="tab" onclick="switchTab('map', this)">Map</button>
+                </div>
+
+                <div id="tab-content">
+                    <div id="tab-stats" class="tab-panel active"></div>
+                    <div id="tab-inventory" class="tab-panel"></div>
+                    <div id="tab-journal" class="tab-panel"></div>
+                    <div id="tab-lore" class="tab-panel"></div>
+                    <div id="tab-map" class="tab-panel"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/game.js"></script>
+</body>
+</html>

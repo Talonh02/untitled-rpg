@@ -101,6 +101,28 @@ From the second adversarial review, these systems exist but aren't connected:
 - Silence as a mechanic (NPC says nothing, let it sit)
 - Conversations as currency (knowledge unlocks doors)
 
+**Units & Armies:**
+- Unit types for phase 2: archers (ranged phase bonus), cavalry (charge bonus, vulnerable to spears), pike (anti-cavalry), siege (vs fortifications), mages/artillery (area damage)
+- Unit type interactions: rock-paper-scissors modifiers on casualty rates (archers shred unshielded, cavalry flanks archers, pikes stop cavalry)
+- Commander system: NPC assigned as commander, their intelligence+courage reduces casualty rate for their side
+- Fortification defense: defending a position halves your casualty rate
+- Supply/attrition: armies in the field lose morale per day without supply lines (simple: food consumption × unit count)
+- Mercenary companies: named merc bands with reputations, found at taverns in larger cities, negotiate price
+
+**Genre Template System (BANKED — design only, not building yet):**
+- The core insight: ALL the math (stats, combat, units, NPC tiers, economy) is genre-agnostic
+- A "swordsman" and a "street samurai" have identical stat blocks. Only display names change.
+- Genre = a patina config file that remaps: weapon names, armor names, unit types, location types, NPC occupations, faction names, lore templates, narrator voice
+- Examples:
+  - Medieval Fantasy: long_sword → "longsword", chain → "chain mail", mage → power_tier 2
+  - Cyberpunk: long_sword → "mono-katana", chain → "ballistic weave", mage → "netrunner"
+  - Sci-Fi: long_sword → "plasma blade", chain → "kinetic armor", mage → "psionic"
+  - Western: long_sword → "cavalry saber", bow → "rifle", chain → "leather duster"
+  - Post-apocalyptic: long_sword → "sharpened rebar", plate → "scrap armor"
+- One codebase, one balance pass, one combat engine. New genre = new JSON config + narrator prompt swap.
+- The spatial tree works for all genres: continent → region → city → district → building → room
+- Fate tiers are universal. Power tiers are universal. Numbers advantage is universal.
+
 **Meta:**
 - Build next phase sequentially, testing each path end-to-end. No more 3-agent speed runs.
 - The LLM should do LESS than it currently does — Python handles state, movement, combat math, NPC placement. Model only does: interpret freeform text, narrate transitions, voice NPCs, evaluate persuasion, write newspaper

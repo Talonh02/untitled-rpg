@@ -8,7 +8,7 @@ from app.crash_log import log_crash, clear_log
 
 from app.data import (
     GameState, Action, CombatOutcome, NPC, Relationship,
-    WEAPONS, ARMOR, WEAPON_ARMOR_MATRIX
+    WEAPONS, ARMOR, WEAPON_ARMOR_MATRIX, ENTITY_TIER_MULTIPLIERS
 )
 from app.config import GAME_CONSTANTS
 from app.game.state import (
@@ -328,7 +328,8 @@ class GameLoop:
 
     # --- Dialogue ---
     def _handle_dialogue(self, action: Action) -> dict:
-        """Talk to an NPC. Promote them if this is the first meeting."""
+        """Talk to an NPC. Promote them if this is the first meeting.
+        Common nobodies (fate < 0.15) give terse responses — no model call."""
         world = self.state.world
         player = self.state.player
 
@@ -338,20 +339,31 @@ class GameLoop:
             return {"type": "dialogue", "npc_name": None,
                     "response": "There's no one here by that name to talk to."}
 
-        # Promote NPC if first meeting (get them a system prompt)
-        if not npc.met_player:
-            self._promote_npc(npc)
-            npc.met_player = True
+        # Mark as met
+        first_meeting = not npc.met_player
+        npc.met_player = True
 
         # Initialize relationship if needed
         if not npc.relationship:
             npc.relationship = Relationship()
         npc.relationship.interactions += 1
 
+        # First meeting: generate their personality
+        if first_meeting:
+            if npc.fate < 0.15:
+                # Common people get a basic prompt (free, no Character Author call)
+                # They're normal people — they'll answer you, just not be deep
+                npc.system_prompt = self._generate_basic_prompt(npc)
+            else:
+                # Higher tier NPCs get the full Character Author treatment
+                self._promote_npc(npc)
+
         # Build NPC context and call their model
+        # Use dialogue_content (extracted speech) first, then raw_input (what they typed),
+        # then intent as last resort. We want actual words, not "to ask about the war".
+        player_words = action.dialogue_content or action.raw_input or action.intent
         npc_context = assemble_npc_context(npc, self.state)
-        npc_response = self._call_npc_model(npc, action.dialogue_content or action.intent,
-                                            npc_context)
+        npc_response = self._call_npc_model(npc, player_words, npc_context)
 
         # Check if persuasion is involved
         if action.involves_persuasion:
@@ -373,8 +385,50 @@ class GameLoop:
                 npc.relationship.trust = min(100, npc.relationship.trust + 1)
                 npc.relationship.comfort = min(100, npc.relationship.comfort + 0.5)
 
+        # Store conversation memory so they remember next time
+        player_said = player_words
+        self._store_conversation_memory(npc, player_said, npc_response)
+
         return {"type": "dialogue", "npc_name": npc.name,
                 "npc_id": npc.id, "response": npc_response}
+
+    def _store_conversation_memory(self, npc: NPC, player_said: str, npc_said: str):
+        """Write conversation back to the NPC's relationship so they remember next time."""
+        if not npc.relationship:
+            return
+
+        rel = npc.relationship
+
+        # Store what happened with timestamp (injected into next context)
+        day = self.state.world.current_day
+        rel.last_summary = f"[Day {day}] Player said: \"{player_said[:120]}\" You replied: \"{npc_said[:120]}\""
+        # Store the day for time-ago calculation
+        if not hasattr(rel, '_last_interaction_day'):
+            rel.flags = [f for f in rel.flags if not f.startswith("last_day:")]
+        rel.flags = [f for f in rel.flags if not f.startswith("last_day:")]
+        rel.flags.append(f"last_day:{day}")
+
+        # Extract knowledge about the player from what they said
+        # (simple keyword extraction — model-based extraction could come later)
+        player_text = player_said.lower()
+        knowledge_keywords = {
+            "name": ["my name is", "i'm called", "call me", "i am"],
+            "looking for": ["looking for", "searching for", "trying to find"],
+            "from": ["i'm from", "i come from", "i traveled from"],
+            "need": ["i need", "i want", "i'm looking to buy"],
+        }
+        for topic, triggers in knowledge_keywords.items():
+            for trigger in triggers:
+                if trigger in player_text:
+                    # Extract the relevant bit after the trigger
+                    idx = player_text.index(trigger) + len(trigger)
+                    snippet = player_said[idx:idx+50].strip().rstrip(".,!?")
+                    if snippet and snippet not in " ".join(rel.knowledge_of_player):
+                        rel.knowledge_of_player.append(f"{topic}: {snippet}")
+                    break
+
+        # Keep knowledge list from growing forever
+        rel.knowledge_of_player = rel.knowledge_of_player[-10:]
 
     # --- Combat ---
     def _handle_combat(self, action: Action) -> dict:
@@ -390,7 +444,11 @@ class GameLoop:
             # Look up companion NPC objects from player.companions IDs
             companions = [self.state.world.npcs[cid] for cid in self.state.player.companions
                           if cid in self.state.world.npcs]
-            outcome = resolve_combat(self.state.player, [npc], companions, {})
+            # Pass player's hired units into combat context
+            player_units = [self.state.world.units[uid] for uid in self.state.player.hired_units
+                            if uid in self.state.world.units]
+            outcome = resolve_combat(self.state.player, [npc], companions,
+                                     {"player_units": player_units})
             # Apply results to game state
             self._apply_combat_outcome(outcome, npc)
             return {"type": "combat", "outcome": outcome, "enemy_name": npc.name}
@@ -417,6 +475,11 @@ class GameLoop:
             total = 1
         margin = (player_roll - enemy_roll) / total
 
+        # Apply HP damage using smooth margin curve
+        from app.engine.combat import calculate_hp_damage
+        hp_loss = calculate_hp_damage(margin, player.armor)
+        player.health -= hp_loss
+
         if margin > 0.15:
             result = "victory"
             npc.is_alive = False
@@ -427,13 +490,10 @@ class GameLoop:
             result = "narrow_victory"
             npc.is_alive = False
             player.kills += 1
-            player.health -= random.randint(10, 30)
         elif margin > -0.15:
             result = "narrow_defeat"
-            player.health -= random.randint(20, 50)
         else:
             result = "defeat"
-            player.health -= random.randint(40, 70)
 
         return {"type": "combat", "result": result, "margin": margin,
                 "enemy_name": npc.name, "player_health": player.health}
@@ -445,15 +505,16 @@ class GameLoop:
             # Apply player injuries
             for inj in outcome.player_injuries:
                 player.injuries.append(inj)
+            # Apply HP damage using smooth margin-based formula
+            from app.engine.combat import calculate_hp_damage
+            hp_loss = calculate_hp_damage(outcome.margin, player.armor)
+            player.health -= hp_loss
             # Track kills
             if outcome.result == "victory":
                 player.kills += outcome.enemy_deaths
                 npc.is_alive = False
                 if player.kills == outcome.enemy_deaths:
                     flag_moment(self.state, f"First kill: {npc.name}", "first_kill")
-            elif outcome.result == "defeat":
-                damage = int(40 + abs(outcome.margin) * 60)
-                player.health -= damage
             # Flag dramatic moments
             if outcome.margin_category in ("decisive", "crushing_defeat"):
                 flag_moment(self.state,
@@ -660,13 +721,68 @@ class GameLoop:
     # NPC INTERACTION HELPERS
     # ============================================================
 
+    # ============================================================
+    # COMMON NPC RESPONSES — no model call needed for nobodies
+    # ============================================================
+
+    COMMON_NPC_RESPONSES = [
+        "Piss off.",
+        "*ignores you*",
+        "Do I know you?",
+        "I'm drinking. Go away.",
+        "Not interested.",
+        "*grunts and turns away*",
+        "Talk to someone else.",
+        "What do you want?",
+        "Buy your own drink.",
+        "*stares blankly*",
+        "Mind your business.",
+        "I've got nothing for you.",
+        "Leave me alone.",
+        "*barely glances up*",
+        "You lost?",
+        "Not today, friend.",
+    ]
+
+    # Names for generating ambient NPCs on the fly
+    AMBIENT_NAMES = [
+        "Harn", "Bessa", "Colt", "Mira", "Dort", "Lena", "Peck", "Sorra",
+        "Tam", "Vella", "Keth", "Nira", "Gost", "Willa", "Fen", "Dara",
+        "Oric", "Tessa", "Brin", "Yara", "Mosk", "Ilsa", "Rutt", "Devva",
+    ]
+
+    # Occupations by location type
+    AMBIENT_OCCUPATIONS = {
+        "tavern": ["laborer", "farmer", "sailor", "carpenter", "drunk", "traveler", "off-duty guard"],
+        "market": ["merchant", "porter", "fishmonger", "weaver", "beggar", "craftsman"],
+        "building": ["commoner", "laborer", "visitor", "clerk"],
+        "district": ["commoner", "laborer", "farmer", "traveler", "beggar"],
+    }
+
+    def _generate_ambient_npc(self) -> NPC:
+        """Generate an NPC on the fly using the full causal chain:
+        Role → Fate (attractor) → Stats (fate-shifted) → Power Tier → Everything."""
+        loc = self.state.world.locations.get(self.state.player.location)
+        loc_type = loc.type if loc else "building"
+
+        # Pick occupation based on where we are
+        occupations = self.AMBIENT_OCCUPATIONS.get(loc_type,
+                      self.AMBIENT_OCCUPATIONS["building"])
+        occupation = random.choice(occupations)
+
+        # Use the causal chain generator
+        from app.engine.npc_life import generate_npc
+        npc = generate_npc(occupation, location=self.state.player.location)
+
+        # Add to world so they persist while we're here
+        self.state.world.npcs[npc.id] = npc
+        return npc
+
     def _find_target_npc(self, action: Action) -> NPC:
         """
         Find the NPC the player is trying to interact with.
-        Matches against: NPC id, name, occupation, and common descriptors
-        like "stranger", "woman", "man", "guard", "girl", "bartender", etc.
-        If nothing matches but there's only one NPC here, pick them.
-        If the player says "random" or "someone" or "stranger", pick randomly.
+        Matches against: NPC id, name, occupation, and common descriptors.
+        If nobody matches, generates an ambient NPC on the fly.
         """
         world = self.state.world
 
@@ -721,8 +837,14 @@ class GameLoop:
         if len(npcs_here) == 1:
             return npcs_here[0]
 
-        # Last resort with multiple NPCs — pick the first one
-        # Better than returning None and having the narrator improvise
+        # Last resort: if the player is clearly trying to interact with someone
+        # ("talk to the man", "approach someone"), generate an ambient NPC
+        interaction_words = ["talk", "speak", "approach", "ask", "say", "tell",
+                             "man", "woman", "person", "guy", "girl", "someone"]
+        if any(w in search_text for w in interaction_words):
+            return self._generate_ambient_npc()
+
+        # If we have named NPCs and nothing matched, pick the first one
         if npcs_here:
             return npcs_here[0]
 
@@ -754,29 +876,39 @@ class GameLoop:
         npc.system_prompt = self._generate_basic_prompt(npc)
 
     def _generate_basic_prompt(self, npc: NPC) -> str:
-        """Generate a simple system prompt without needing a model."""
+        """Generate a system prompt for a common NPC without a model call.
+        These are normal people — they answer questions, give directions,
+        complain about weather, share local gossip. Just not deeply."""
         traits = []
         if npc.stats.intelligence > 60:
             traits.append("articulate")
         elif npc.stats.intelligence < 30:
             traits.append("simple-spoken")
         if npc.stats.empathy > 60:
-            traits.append("warm")
+            traits.append("friendly")
         elif npc.stats.empathy < 30:
-            traits.append("cold")
+            traits.append("brusque")
         if npc.stats.humor > 60:
-            traits.append("witty")
+            traits.append("quick to joke")
         if npc.stats.courage > 70:
-            traits.append("bold")
+            traits.append("confident")
         elif npc.stats.courage < 25:
-            traits.append("timid")
+            traits.append("nervous")
         if npc.stats.honesty < 30:
             traits.append("evasive")
+        if npc.temperament == "cheerful":
+            traits.append("cheerful")
+        elif npc.temperament == "melancholy":
+            traits.append("tired")
+        elif npc.temperament == "cold":
+            traits.append("guarded")
 
         trait_str = ", ".join(traits) if traits else "ordinary"
         return (f"You are {npc.name}, a {npc.age}-year-old {npc.occupation}. "
-                f"You are {trait_str}. You speak like someone of your station. "
-                f"Keep responses brief — a few sentences at most.")
+                f"You are {trait_str}. You're a normal person going about your day. "
+                f"You can answer simple questions, give directions, share local gossip, "
+                f"or complain about the weather. You don't have secrets or deep wisdom. "
+                f"Keep responses to 1-2 sentences. Talk like a real person, not a quest-giver.")
 
     def _call_npc_model(self, npc: NPC, player_message: str,
                         npc_context: str) -> str:
@@ -965,9 +1097,42 @@ class GameLoop:
             remaining.append(inj)
         player.injuries = remaining
 
-        if healed:
+        if healed and self.ui:
             names = [i.name for i in healed]
             self.ui.show_system(f"Healed: {', '.join(names)}")
+
+        # --- Wired systems (P2 fixes) ---
+        # Trust/attraction decay for NPCs with relationships
+        for npc in self.state.world.npcs.values():
+            if npc.relationship and npc.relationship.trust < GAME_CONSTANTS.get("trust_no_decay_threshold", 60):
+                decay = (GAME_CONSTANTS.get("trust_decay_companion", 0.5) if npc.is_companion
+                         else GAME_CONSTANTS.get("trust_decay_npc", 0.1))
+                npc.relationship.trust = max(-100, npc.relationship.trust - decay)
+
+        # Economy tick at dawn (production, trade, prosperity)
+        if self.state.world.time_slot == "dawn":
+            try:
+                from app.engine.economy_sim import tick_economy
+                tick_economy(self.state.world)
+            except Exception as e:
+                log_crash("tick_economy", f"day={self.state.world.current_day}", e, "skipped")
+
+        # NPC life simulation at dawn (NPCs move, hear news, talk to each other)
+        if self.state.world.time_slot == "dawn":
+            try:
+                from app.engine.npc_life import update_npc_lives
+                update_npc_lives(self.state.world)
+            except Exception as e:
+                log_crash("update_npc_lives", f"day={self.state.world.current_day}", e, "skipped")
+
+        # Food consumption at dawn
+        if self.state.world.time_slot == "dawn":
+            food_words = ["food", "ration", "meat", "bread", "cheese", "fruit", "dried"]
+            food_items = [item for item in player.inventory
+                          if any(w in item.lower() for w in food_words)]
+            if food_items and player.hunger > 20:
+                player.inventory.remove(food_items[0])
+                player.hunger = max(0, player.hunger - 30)
 
     def _run_director(self):
         """Run the Director to generate daily world events."""
@@ -1216,3 +1381,288 @@ class GameLoop:
                     self.ui.show_system("  Inside here:")
                     for child in children[:10]:
                         self.ui.show_system(f"    - {child.name} ({child.type})")
+
+    # ============================================================
+    # WEB API METHODS — used by server.py for the HTML frontend
+    # These process turns without a terminal UI.
+    # ============================================================
+
+    def get_initial_scene(self) -> str:
+        """Get the opening narration for a new game. No UI calls."""
+        from app.crash_log import clear_log
+        clear_log()
+        scene = assemble_scene_context(self.state)
+        try:
+            from app.ai.narrator import narrate
+            action = Action(type="observation", intent="look around at your surroundings")
+            intro = narrate(scene, action,
+                            {"type": "observation", "description": "The player arrives and looks around."})
+            if intro:
+                return intro
+        except Exception:
+            pass
+        return scene
+
+    def process_action(self, raw_input: str) -> dict:
+        """Process freeform text from the web frontend. Returns result dict."""
+        response = {"narration": "", "dialogue": None, "combat_text": None,
+                    "system": [], "death": None}
+
+        # Save command
+        if raw_input.strip().lower() == "save":
+            try:
+                save_game(self.state, "saves/save.json")
+                response["system"].append("Game saved.")
+            except Exception as e:
+                response["system"].append(f"Save failed: {e}")
+            response["state"] = self.get_state_for_ui()
+            return response
+
+        # Interpret the freeform text into a structured action
+        scene_context = assemble_scene_context(self.state)
+        action = self._interpret_input(raw_input, scene_context)
+        return self._finish_turn(action, scene_context, response)
+
+    def process_button(self, action_type: str, target_id: str = "") -> dict:
+        """Process a button click — skips interpreter (saves API calls)."""
+        response = {"narration": "", "dialogue": None, "combat_text": None,
+                    "system": [], "death": None}
+
+        type_map = {
+            "move": "movement", "talk": "dialogue", "attack": "combat",
+            "observe": "observation", "rest": "rest", "trade": "trade",
+            "stealth": "stealth",
+        }
+        action = Action(
+            type=type_map.get(action_type, "action"),
+            target=target_id,
+            involves_combat=(action_type == "attack"),
+            raw_input=f"{action_type} {target_id}".strip(),
+            intent=f"{action_type} {target_id}".strip(),
+        )
+
+        scene_context = assemble_scene_context(self.state)
+        return self._finish_turn(action, scene_context, response)
+
+    def _finish_turn(self, action: Action, scene_context: str, response: dict) -> dict:
+        """Shared turn processing for both text and button inputs."""
+        # Intervention check
+        check_text = f"{action.intent} {action.raw_input} {action.manner} {action.type}".lower()
+        for trigger in INTERVENTION_TRIGGERS:
+            if trigger in check_text:
+                response["combat_text"] = random.choice(INTERVENTION_RESPONSES)
+                if self.state.player:
+                    self.state.player.health = 0
+                response["death"] = {"cause": "the world's swift justice"}
+                self.state.game_over = True
+                response["state"] = self.get_state_for_ui()
+                return response
+
+        # Route action to engine
+        engine_result = self._route_action(action)
+
+        # Narrate
+        narration = self._narrate_result(action, engine_result, scene_context)
+        response["narration"] = narration
+
+        # Pull out NPC dialogue if present
+        if engine_result.get("type") == "dialogue":
+            speaker = engine_result.get("npc_name")
+            text = engine_result.get("response", "")
+            if speaker and text:
+                response["dialogue"] = {"speaker": speaker, "text": text}
+
+        # Pull out combat info
+        if engine_result.get("type") == "combat":
+            response["combat_result"] = {
+                "result": engine_result.get("result", ""),
+                "enemy": engine_result.get("enemy_name", ""),
+            }
+
+        # Update game state
+        self.state.turn_number += 1
+        log_action(self.state, self.state.turn_number,
+                   action.raw_input, str(engine_result), narration)
+
+        # Time advancement (every 5-10 actions)
+        self.action_count_since_time += 1
+        if self.action_count_since_time >= random.randint(5, 10):
+            self._advance_time()
+            self.action_count_since_time = 0
+
+        # Director events (once per day)
+        if self.state.world.current_day > self.last_director_day:
+            self._run_director()
+            self.last_director_day = self.state.world.current_day
+
+        # Summarize old logs periodically
+        summarize_every = GAME_CONSTANTS.get("summarize_every_n_turns", 10)
+        if self.state.turn_number % summarize_every == 0:
+            run_summarizer(self.state)
+
+        # Death check
+        if self.state.player and self.state.player.health <= 0:
+            response["death"] = {"cause": "injuries"}
+            self.state.game_over = True
+
+        response["state"] = self.get_state_for_ui()
+        return response
+
+    def get_state_for_ui(self) -> dict:
+        """Build current game state as a dict for the frontend side panels."""
+        player = self.state.player
+        world = self.state.world
+        if not player:
+            return {"error": "no_player"}
+
+        loc = world.locations.get(player.location)
+        parent = world.get_parent_location(player.location) if loc else None
+
+        # Nearby locations (children, parent, siblings)
+        nearby = []
+        if loc:
+            for cid in loc.children_ids:
+                child = world.locations.get(cid)
+                if child:
+                    nearby.append({"id": cid, "name": child.name,
+                                   "type": child.type, "dir": "inside"})
+            if loc.parent_id:
+                p = world.locations.get(loc.parent_id)
+                if p:
+                    nearby.append({"id": p.id, "name": p.name,
+                                   "type": p.type, "dir": "outside"})
+                    for sid in p.children_ids:
+                        if sid != loc.id:
+                            sib = world.locations.get(sid)
+                            if sib:
+                                nearby.append({"id": sid, "name": sib.name,
+                                               "type": sib.type, "dir": "nearby"})
+
+        # NPCs at this location (observable traits, not raw numbers)
+        npcs_here = world.npcs_at_location(player.location)
+
+        # Auto-populate with ambient NPCs if location has population but few NPCs
+        # Tavern (pop 25) → ~7 people. Market (pop 150) → ~10. Town square → ~12.
+        import math as _math
+        if loc and loc.population > 0 and len(npcs_here) < 8:
+            target = min(12, max(4, int(_math.log2(max(1, loc.population)) * 1.5)))
+            ambient_count = target - len(npcs_here)
+            for _ in range(max(0, ambient_count)):
+                ambient = self._generate_ambient_npc()
+                npcs_here.append(ambient)
+
+        npc_list = [self._npc_display(n) for n in npcs_here]
+
+        # Companions
+        comp_list = []
+        for cid in player.companions:
+            cnpc = world.npcs.get(cid)
+            if cnpc:
+                comp_list.append({
+                    "name": cnpc.name, "health": cnpc.stats.health,
+                    "trust": cnpc.relationship.trust if cnpc.relationship else 0,
+                    "mood": cnpc.temperament,
+                })
+
+        # Hired units
+        unit_list = []
+        for uid in player.hired_units:
+            unit = world.units.get(uid)
+            if unit and unit.count > 0:
+                unit_list.append({
+                    "id": unit.id, "name": unit.name, "type": unit.unit_type,
+                    "count": unit.count, "morale": unit.morale,
+                    "weapon": WEAPONS.get(unit.weapon, {}).get("display", unit.weapon),
+                    "armor": ARMOR.get(unit.armor, {}).get("display", unit.armor),
+                    "cost_per_day": unit.daily_upkeep(),
+                })
+
+        return {
+            "player": {
+                "name": player.name,
+                "health": player.health,
+                "hunger": player.hunger,
+                "thirst": player.thirst,
+                "fatigue": player.fatigue,
+                "weapon": WEAPONS.get(player.weapon, {}).get("display", player.weapon),
+                "armor": ARMOR.get(player.armor, {}).get("display", player.armor),
+                "coins": player.coins,
+                "inventory": player.inventory,
+                "days_alive": player.days_alive,
+                "kills": player.kills,
+                "injuries": [{"name": i.name, "severity": i.severity}
+                             for i in player.injuries if hasattr(i, "name")],
+                "stats": player.stats.to_dict(),
+                "companions": comp_list,
+                "hired_units": unit_list,
+                "knowledge": player.knowledge_log[-20:],
+            },
+            "location": {
+                "id": loc.id if loc else "",
+                "name": loc.name if loc else "???",
+                "type": loc.type if loc else "",
+                "description": loc.description if loc else "",
+                "parent": parent.name if parent else None,
+                "population": loc.population if loc else 0,
+            },
+            "nearby": nearby,
+            "npcs": npc_list,
+            "time": {
+                "slot": world.time_slot,
+                "day": world.current_day,
+                "season": world.season,
+            },
+            "turn": self.state.turn_number,
+            "game_over": self.state.game_over,
+        }
+
+    def _npc_display(self, npc) -> dict:
+        """Build display info for an NPC — observable traits, no raw numbers."""
+        # Name: real name if met, appearance/occupation if not
+        if npc.met_player:
+            display_name = npc.name
+        else:
+            age = "young" if npc.age < 25 else "middle-aged" if npc.age < 50 else "older"
+            display_name = f"A {age} {npc.occupation}"
+
+        # Physical build (what you can see looking at them)
+        combined = (npc.stats.strength + npc.stats.toughness) / 2
+        if combined < 30:
+            build = "slight"
+        elif combined > 80:
+            build = "imposing"
+        elif combined > 65:
+            build = "sturdy"
+        else:
+            build = ""  # average, nothing notable
+
+        # Threat level (you can size someone up by looking at them)
+        cpr = npc.stats.combat_power()
+        tier_mult = ENTITY_TIER_MULTIPLIERS.get(npc.power_tier, 1.0)
+        effective = cpr * tier_mult
+        if effective < 25:
+            threat = "harmless"
+        elif effective < 45:
+            threat = "capable"
+        elif effective < 65:
+            threat = "dangerous"
+        else:
+            threat = "deadly"
+
+        # Fate tier — exponentially distributed rarity
+        # common=grey, uncommon=green, rare=blue, epic=purple, legendary=gold, mythic=crimson
+        fate = npc.fate
+        if fate >= 0.85:   fate_tier = "mythic"
+        elif fate >= 0.70: fate_tier = "legendary"
+        elif fate >= 0.50: fate_tier = "epic"
+        elif fate >= 0.30: fate_tier = "rare"
+        elif fate >= 0.15: fate_tier = "uncommon"
+        else:              fate_tier = "common"
+
+        return {
+            "id": npc.id, "name": display_name, "occupation": npc.occupation,
+            "build": build, "threat": threat, "temperament": npc.temperament,
+            "met": npc.met_player, "alive": npc.is_alive,
+            "relationship": npc.relationship.stage if npc.relationship else "stranger",
+            "fate_tier": fate_tier,
+        }

@@ -194,6 +194,119 @@ class Item:
             "value": self.value,
         }
 
+# ============================================================
+# UNIT (group of combatants acting as one entity)
+# Scales from 5 hired swordsmen to 1000-soldier kingdom cohorts.
+# ============================================================
+
+@dataclass
+class Unit:
+    """A group of similar combatants acting as one game object.
+    The same class handles bar mercs (×5) and kingdom armies (×1000)."""
+    id: str
+    name: str                    # "Hired Swordsmen", "Eastern Cohort"
+    unit_type: str               # swordsman, archer, bandit, cavalry, scout
+    count: int                   # how many people in the unit
+    stats: Stats                 # average stats for one member
+    weapon: str = "short_sword"
+    armor: str = "leather"
+    power_tier: int = 1          # same as NPC — human=1, exceptional=2, etc.
+    morale: int = 50             # 0-100. Below 20 they flee.
+    loyalty: int = 50            # to their employer. Mercs start low.
+    faction: str = "none"
+    location: str = ""
+    commander_id: str = ""       # NPC id of the leader (boosts morale)
+    cost_per_day: int = 0        # upkeep in coins. 0 = faction unit, not hired.
+    is_player_unit: bool = False
+
+    @property
+    def effective_cpr(self) -> float:
+        """Combat power of the whole unit including numbers advantage."""
+        base_cpr = self.stats.combat_power(
+            WEAPONS.get(self.weapon, {}).get("multiplier", 1.0),
+            1.0
+        )
+        tier_mult = ENTITY_TIER_MULTIPLIERS.get(self.power_tier, 1.0)
+        numbers_mult = 1.0 + math.log2(max(1, self.count)) * 0.7
+        return base_cpr * tier_mult * numbers_mult
+
+    def take_casualties(self, fraction: float) -> int:
+        """Remove a fraction of the unit. Returns number killed."""
+        losses = max(1, int(self.count * fraction))
+        self.count = max(0, self.count - losses)
+        self.morale = max(0, self.morale - int(fraction * 30))
+        return losses
+
+    def should_flee(self) -> bool:
+        """Check if the unit breaks and runs."""
+        return self.morale < 20 or self.count == 0
+
+    def daily_upkeep(self) -> int:
+        """Total daily cost = per-soldier rate × count."""
+        return self.cost_per_day * self.count
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id, "name": self.name, "unit_type": self.unit_type,
+            "count": self.count, "stats": self.stats.to_dict(),
+            "weapon": self.weapon, "armor": self.armor,
+            "power_tier": self.power_tier, "morale": self.morale,
+            "loyalty": self.loyalty, "faction": self.faction,
+            "location": self.location, "commander_id": self.commander_id,
+            "cost_per_day": self.cost_per_day, "is_player_unit": self.is_player_unit,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "Unit":
+        return cls(
+            id=d["id"], name=d["name"], unit_type=d.get("unit_type", "swordsman"),
+            count=d.get("count", 1), stats=Stats.from_dict(d.get("stats", {})),
+            weapon=d.get("weapon", "short_sword"), armor=d.get("armor", "leather"),
+            power_tier=d.get("power_tier", 1), morale=d.get("morale", 50),
+            loyalty=d.get("loyalty", 50), faction=d.get("faction", "none"),
+            location=d.get("location", ""), commander_id=d.get("commander_id", ""),
+            cost_per_day=d.get("cost_per_day", 0),
+            is_player_unit=d.get("is_player_unit", False),
+        )
+
+
+# Templates for hiring units at taverns/barracks
+UNIT_TEMPLATES = {
+    "swordsmen": {
+        "name": "Hired Swordsmen", "unit_type": "swordsman",
+        "weapon": "short_sword", "armor": "leather",
+        "base_stats": {"strength": 50, "toughness": 48, "agility": 45,
+                       "courage": 40, "perception": 35, "willpower": 35},
+        "cost_per_day": 3,  # per soldier
+        "min_count": 3, "max_count": 8,
+    },
+    "archers": {
+        "name": "Hired Archers", "unit_type": "archer",
+        "weapon": "bow", "armor": "leather",
+        "base_stats": {"strength": 40, "toughness": 38, "agility": 55,
+                       "courage": 35, "perception": 55, "willpower": 35},
+        "cost_per_day": 4,
+        "min_count": 3, "max_count": 6,
+    },
+    "scouts": {
+        "name": "Hired Scouts", "unit_type": "scout",
+        "weapon": "dagger", "armor": "leather",
+        "base_stats": {"strength": 35, "toughness": 35, "agility": 60,
+                       "courage": 45, "perception": 65, "willpower": 40},
+        "cost_per_day": 5,
+        "min_count": 2, "max_count": 4,
+    },
+    "men_at_arms": {
+        "name": "Men-at-Arms", "unit_type": "soldier",
+        "weapon": "long_sword", "armor": "chain",
+        "base_stats": {"strength": 55, "toughness": 55, "agility": 42,
+                       "courage": 50, "perception": 40, "willpower": 45},
+        "cost_per_day": 6,
+        "min_count": 5, "max_count": 15,
+    },
+}
+
+
 # Tier multipliers — how much stronger than common (tier 1) gear
 ITEM_TIER_MULTIPLIERS = {
     0: 0.3,     # improvised — chair leg, rock, broken bottle
@@ -263,6 +376,7 @@ class NPC:
     relationship: Optional[Relationship] = None
     knowledge_tags: list = field(default_factory=list)
     injuries: list = field(default_factory=list)
+    personal_log: list = field(default_factory=list)  # what happened in their life recently
     schedule_template: str = ""   # key into SCHEDULE_TEMPLATES
     is_companion: bool = False
     is_alive: bool = True
@@ -318,6 +432,7 @@ class NPC:
             "met_player": self.met_player, "model_tier": self.model_tier,
             "depth_score": self.depth_score,
             "power_tier": self.power_tier,
+            "personal_log": self.personal_log[-15:],
             "schedule_template": self.schedule_template,
         }
 
@@ -342,6 +457,7 @@ class Player:
     inventory: list = field(default_factory=list)
     knowledge_log: list = field(default_factory=list)   # things the player has learned
     companions: list = field(default_factory=list)       # list of NPC ids
+    hired_units: list = field(default_factory=list)     # list of Unit ids
     injuries: list = field(default_factory=list)
     reputation: dict = field(default_factory=dict)       # city_id → {strength, sentiment}
     nonsense_count: int = 0
@@ -386,7 +502,7 @@ class Player:
             "armor": self.armor, "coins": self.coins,
             "inventory": self.inventory,
             "knowledge_log": self.knowledge_log,
-            "companions": self.companions,
+            "companions": self.companions, "hired_units": self.hired_units,
             "injuries": [i.to_dict() if isinstance(i, Injury) else i for i in self.injuries],
             "reputation": self.reputation,
             "days_alive": self.days_alive, "kills": self.kills,
@@ -413,6 +529,7 @@ class Location:
     coordinates: tuple = (0, 0)
     terrain: str = ""
     mood: str = ""
+    population: int = 0          # how many people live/work here (0 = use parent's)
     # --- Dungeon/exploration fields (empty for normal locations) ---
     is_dungeon: bool = False
     locked: bool = False          # needs a key, high agility, or a puzzle to enter
@@ -427,7 +544,8 @@ class Location:
             "children_ids": self.children_ids, "danger_rating": self.danger_rating,
             "economy": self.economy, "features": self.features,
             "coordinates": list(self.coordinates), "terrain": self.terrain,
-            "mood": self.mood, "is_dungeon": self.is_dungeon,
+            "mood": self.mood, "population": self.population,
+            "is_dungeon": self.is_dungeon,
             "locked": self.locked, "lock_difficulty": self.lock_difficulty,
             "trap": self.trap, "notable_items": self.notable_items,
         }
@@ -472,6 +590,8 @@ class World:
     npcs: dict = field(default_factory=dict)         # id → NPC
     # Items and artifacts
     items: dict = field(default_factory=dict)         # id → Item
+    # Units (groups of combatants — mercs, armies, patrols)
+    units: dict = field(default_factory=dict)         # id → Unit
     # Factions, history, lore
     factions: dict = field(default_factory=dict)
     history: dict = field(default_factory=dict)
@@ -577,6 +697,7 @@ class CombatOutcome:
     companion_outcomes: list = field(default_factory=list)  # [{name, status, action}]
     enemy_deaths: int = 0
     notable_moments: list = field(default_factory=list)
+    unit_casualties: list = field(default_factory=list)  # [{name, side, before, losses, after}]
     loot: dict = field(default_factory=dict)
     is_decision_point: bool = False
     decision_prompt: str = ""

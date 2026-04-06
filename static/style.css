@@ -1,0 +1,849 @@
+/* ============================================================
+   UNTITLED RPG — Dark Candlelit Aesthetic
+   Matches the Erudite style: near-black bg, gold accents, Fraunces
+   ============================================================ */
+
+:root {
+    --bg-dark: #0f0d0b;
+    --bg-panel: #1a1815;
+    --bg-input: #15130f;
+    --bg-hover: #252118;
+    --border: #2a2520;
+    --border-light: #3a3530;
+    --text: #e8dcc8;
+    --text-dim: #8a7e6e;
+    --text-faint: #5a5248;
+    --gold: #c4a35a;
+    --gold-dim: #8a7340;
+    --gold-bright: #e0c070;
+    --cyan: #7eb8c9;
+    --red: #c45a5a;
+    --red-dim: #8a3a3a;
+    --green: #6ab86a;
+    --orange: #c48a5a;
+    --purple: #a07ec4;
+    /* Fate tier colors: grey → green → blue → purple → gold → crimson */
+    --fate-common: #8a7e6e;
+    --fate-uncommon: #6ab86a;
+    --fate-rare: #5a8ac4;
+    --fate-epic: #a07ec4;
+    --fate-legendary: #c4a35a;
+    --fate-mythic: #c43a3a;
+    --font-heading: 'Fraunces', serif;
+    --font-body: 'Inter', -apple-system, sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    background: var(--bg-dark);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 13px;
+    line-height: 1.55;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* ---- Screens ---- */
+.screen { display: none; height: 100vh; }
+.screen.active { display: flex; }
+
+/* ============================================================
+   MENU SCREEN
+   ============================================================ */
+
+#menu-screen {
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    background: radial-gradient(ellipse at center, #1a1510 0%, var(--bg-dark) 70%);
+}
+
+.menu-content { text-align: center; }
+
+.title {
+    font-family: var(--font-heading);
+    font-size: 3rem;
+    font-weight: 300;
+    color: var(--gold);
+    letter-spacing: 3px;
+    margin-bottom: 0.3rem;
+}
+
+.subtitle {
+    color: var(--text-dim);
+    font-style: italic;
+    font-size: 0.9rem;
+    margin-bottom: 2.5rem;
+}
+
+.menu-options button {
+    display: block;
+    width: 220px;
+    margin: 0.6rem auto;
+    padding: 0.7rem 1rem;
+    background: transparent;
+    border: 1px solid var(--gold-dim);
+    color: var(--gold);
+    font-family: var(--font-heading);
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 1px;
+}
+
+.menu-options button:hover {
+    background: var(--gold-dim);
+    color: var(--bg-dark);
+    border-color: var(--gold);
+}
+
+/* ============================================================
+   CHARACTER CREATION
+   ============================================================ */
+
+#creation-screen {
+    justify-content: center;
+    align-items: center;
+    background: radial-gradient(ellipse at center, #1a1510 0%, var(--bg-dark) 70%);
+}
+
+.creation-content {
+    width: 500px;
+    max-width: 90vw;
+}
+
+.creation-content h2 {
+    font-family: var(--font-heading);
+    color: var(--gold);
+    font-weight: 400;
+    margin-bottom: 1.5rem;
+    text-align: center;
+}
+
+.creation-field {
+    margin-bottom: 1rem;
+}
+
+.creation-field label {
+    display: block;
+    color: var(--text-dim);
+    font-size: 0.8rem;
+    margin-bottom: 0.3rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.creation-field input,
+#char-description {
+    width: 100%;
+    padding: 0.6rem 0.8rem;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 0.95rem;
+    border-radius: 3px;
+}
+
+#char-description {
+    resize: vertical;
+    min-height: 80px;
+}
+
+.creation-field input:focus,
+#char-description:focus {
+    outline: none;
+    border-color: var(--gold-dim);
+}
+
+.creation-tabs {
+    display: flex;
+    gap: 0;
+    margin: 1rem 0 0.8rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.creation-tabs .tab {
+    flex: 1;
+    padding: 0.5rem;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+}
+
+.creation-tabs .tab.active {
+    color: var(--gold);
+    border-bottom-color: var(--gold);
+}
+
+#archetype-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    margin-bottom: 1rem;
+}
+
+.archetype-option {
+    padding: 0.6rem 0.8rem;
+    border: 1px solid var(--border);
+    background: var(--bg-panel);
+    cursor: pointer;
+    transition: all 0.15s;
+    border-radius: 3px;
+}
+
+.archetype-option:hover {
+    border-color: var(--gold-dim);
+    background: var(--bg-hover);
+}
+
+.archetype-option.selected {
+    border-color: var(--gold);
+    background: var(--bg-hover);
+}
+
+.archetype-option strong {
+    color: var(--gold);
+    font-family: var(--font-heading);
+    font-weight: 400;
+}
+
+.archetype-option .dim {
+    color: var(--text-dim);
+    font-size: 0.85rem;
+}
+
+.start-btn {
+    display: block;
+    width: 100%;
+    padding: 0.8rem;
+    margin-top: 1rem;
+    background: var(--gold-dim);
+    border: 1px solid var(--gold);
+    color: var(--bg-dark);
+    font-family: var(--font-heading);
+    font-size: 1rem;
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: all 0.2s;
+    border-radius: 3px;
+}
+
+.start-btn:hover {
+    background: var(--gold);
+}
+
+#loading {
+    text-align: center;
+    margin-top: 1rem;
+}
+
+.loading-text {
+    color: var(--text-dim);
+    font-style: italic;
+}
+
+/* ============================================================
+   GAME LAYOUT — three columns
+   ============================================================ */
+
+#game-screen {
+    flex-direction: column;
+}
+
+.time-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.4rem 1rem;
+    background: var(--bg-panel);
+    border-bottom: 1px solid var(--border);
+    font-size: 0.8rem;
+    color: var(--text-dim);
+}
+
+.time-bar .small-btn {
+    padding: 0.2rem 0.6rem;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 0.75rem;
+    transition: all 0.15s;
+}
+
+.time-bar .small-btn:hover {
+    border-color: var(--gold-dim);
+    color: var(--gold);
+}
+
+.game-layout {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+/* ---- Panels (left + right) ---- */
+.panel {
+    width: 240px;
+    min-width: 240px;
+    background: var(--bg-panel);
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    padding: 0.5rem 0;
+}
+
+.right-panel {
+    border-right: none;
+    border-left: 1px solid var(--border);
+}
+
+.panel-section {
+    padding: 0.5rem 0.8rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.panel-section h3 {
+    font-family: var(--font-heading);
+    font-size: 0.75rem;
+    font-weight: 400;
+    color: var(--gold-dim);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 0.4rem;
+}
+
+/* ---- Center panel ---- */
+.center-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+#narrative-log {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem 1.5rem;
+    scroll-behavior: smooth;
+}
+
+/* ---- Narrative entry styles ---- */
+.narration {
+    margin-bottom: 0.8rem;
+    color: var(--text);
+    font-style: italic;
+    line-height: 1.65;
+}
+
+.dialogue {
+    margin-bottom: 0.8rem;
+    padding: 0.5rem 0.8rem;
+    border-left: 3px solid var(--cyan);
+    background: rgba(126, 184, 201, 0.05);
+}
+
+.dialogue .speaker {
+    color: var(--cyan);
+    font-family: var(--font-heading);
+    font-weight: 400;
+    font-size: 0.85rem;
+    display: block;
+    margin-bottom: 0.2rem;
+}
+
+.dialogue p {
+    color: var(--text);
+    margin: 0;
+}
+
+.combat-text {
+    margin-bottom: 0.8rem;
+    padding: 0.5rem 0.8rem;
+    border-left: 3px solid var(--red);
+    background: rgba(196, 90, 90, 0.05);
+    color: var(--red);
+    font-weight: 500;
+}
+
+.player-input-echo {
+    margin-bottom: 0.5rem;
+    color: var(--text-faint);
+    font-family: monospace;
+    font-size: 0.85rem;
+}
+
+.system-msg {
+    margin-bottom: 0.4rem;
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    font-style: italic;
+}
+
+/* ---- Action bar (bottom of center) ---- */
+.action-bar {
+    padding: 0.5rem 1rem;
+    border-top: 1px solid var(--border);
+    background: var(--bg-panel);
+}
+
+#action-buttons {
+    display: flex;
+    gap: 0.4rem;
+    margin-bottom: 0.4rem;
+    flex-wrap: wrap;
+}
+
+#action-buttons button {
+    padding: 0.3rem 0.7rem;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    border-radius: 3px;
+}
+
+#action-buttons button:hover {
+    border-color: var(--gold-dim);
+    color: var(--text);
+}
+
+.input-row {
+    display: flex;
+    gap: 0.4rem;
+}
+
+#player-input {
+    flex: 1;
+    padding: 0.5rem 0.8rem;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 0.95rem;
+    border-radius: 3px;
+}
+
+#player-input:focus {
+    outline: none;
+    border-color: var(--gold-dim);
+}
+
+#player-input:disabled {
+    opacity: 0.5;
+}
+
+#send-btn {
+    padding: 0.5rem 0.8rem;
+    background: var(--gold-dim);
+    border: 1px solid var(--gold);
+    color: var(--bg-dark);
+    font-size: 1rem;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.15s;
+}
+
+#send-btn:hover { background: var(--gold); }
+#send-btn:disabled { opacity: 0.4; cursor: default; }
+
+/* ============================================================
+   LEFT PANEL — Location, NPCs, Nearby
+   ============================================================ */
+
+.location-name {
+    color: var(--text);
+    font-family: var(--font-heading);
+    font-weight: 400;
+    font-size: 1rem;
+}
+
+.location-type {
+    color: var(--text-dim);
+    font-size: 0.8rem;
+}
+
+/* NPC entries */
+.npc-entry {
+    padding: 0.4rem 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.npc-entry:last-child { border-bottom: none; }
+
+.npc-name {
+    color: var(--text);
+    font-size: 0.9rem;
+}
+
+.npc-details {
+    font-size: 0.75rem;
+    margin-top: 0.1rem;
+}
+
+.npc-actions {
+    margin-top: 0.3rem;
+    display: flex;
+    gap: 0.3rem;
+}
+
+.npc-actions button {
+    padding: 0.15rem 0.5rem;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-size: 0.7rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    border-radius: 2px;
+}
+
+.npc-actions button:hover {
+    border-color: var(--gold-dim);
+    color: var(--text);
+}
+
+.npc-actions button.danger:hover {
+    border-color: var(--red-dim);
+    color: var(--red);
+}
+
+/* Threat level colors */
+.threat-harmless { color: var(--text-dim); }
+.threat-capable { color: var(--text); }
+.threat-dangerous { color: var(--orange); }
+.threat-deadly { color: var(--red); }
+
+/* Fate tier colors */
+.fate-common { color: var(--fate-common); }
+.fate-uncommon { color: var(--fate-uncommon); }
+.fate-rare { color: var(--fate-rare); }
+.fate-epic { color: var(--fate-epic); }
+.fate-legendary { color: var(--fate-legendary); }
+.fate-mythic { color: var(--fate-mythic); }
+
+.fate-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    margin-right: 3px;
+    vertical-align: middle;
+}
+
+/* Nearby locations */
+.nearby-entry { margin-bottom: 0.2rem; }
+
+.location-btn {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 0.3rem 0.5rem;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.15s;
+    border-radius: 2px;
+}
+
+.location-btn:hover {
+    border-color: var(--border-light);
+    color: var(--text);
+    background: var(--bg-hover);
+}
+
+/* ============================================================
+   RIGHT PANEL — Vitals, Equipment, Tabs
+   ============================================================ */
+
+.vitals .vital {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-bottom: 0.3rem;
+    font-size: 0.8rem;
+}
+
+.vital span:first-child {
+    width: 50px;
+    color: var(--text-dim);
+    font-size: 0.75rem;
+}
+
+.bar {
+    flex: 1;
+    height: 6px;
+    background: var(--bg-dark);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.3s ease;
+}
+
+.bar-fill.health { background: var(--green); }
+.bar-fill.hunger { background: var(--orange); }
+.bar-fill.fatigue { background: var(--purple); }
+
+.vital .val {
+    width: 24px;
+    text-align: right;
+    color: var(--text-dim);
+    font-size: 0.75rem;
+}
+
+/* Equipment display */
+.equipment-section {
+    font-size: 0.8rem;
+}
+
+.equip-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.15rem 0;
+}
+
+.gold { color: var(--gold); }
+.dim { color: var(--text-dim); }
+.italic { font-style: italic; }
+
+/* Tab bar */
+.tab-bar {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    border-top: 1px solid var(--border);
+}
+
+.tab-bar .tab {
+    flex: 1;
+    padding: 0.3rem 0.2rem;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-faint);
+    cursor: pointer;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: all 0.15s;
+}
+
+.tab-bar .tab:hover { color: var(--text-dim); }
+.tab-bar .tab.active {
+    color: var(--gold);
+    border-bottom-color: var(--gold-dim);
+}
+
+/* Tab content */
+#tab-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.5rem 0.8rem;
+}
+
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* Stats grid */
+.stats-grid { }
+
+.stat-group {
+    margin-bottom: 0.6rem;
+}
+
+.stat-group h4 {
+    font-size: 0.7rem;
+    color: var(--gold-dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 0.2rem;
+    font-weight: 400;
+}
+
+.stat-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.1rem 0;
+    font-size: 0.8rem;
+}
+
+.stat-label {
+    color: var(--text-dim);
+    font-size: 0.75rem;
+    font-family: monospace;
+}
+
+.stat-val { color: var(--text); }
+.stat-low { color: var(--red); }
+.stat-high { color: var(--green); }
+
+/* Inventory tab */
+.inv-section { margin-bottom: 0.5rem; }
+.inv-item {
+    padding: 0.2rem 0;
+    font-size: 0.85rem;
+    color: var(--text);
+    border-bottom: 1px solid var(--border);
+}
+
+hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 0.4rem 0;
+}
+
+/* Journal tab */
+.journal-entry {
+    padding: 0.3rem 0;
+    font-size: 0.85rem;
+    border-bottom: 1px solid var(--border);
+}
+
+/* Lore tab */
+.lore-section { margin-bottom: 0.6rem; }
+.lore-section h4 {
+    font-family: var(--font-heading);
+    color: var(--gold);
+    font-weight: 400;
+    margin-bottom: 0.2rem;
+}
+
+.lore-themes {
+    color: var(--text-dim);
+    font-style: italic;
+    font-size: 0.85rem;
+}
+
+.lore-faction, .lore-conflict {
+    padding: 0.2rem 0;
+    font-size: 0.85rem;
+}
+
+/* Map tab */
+/* Interactive SVG map */
+.game-map {
+    width: 100%;
+    height: 250px;
+    background: var(--bg-dark);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+}
+
+.map-node:hover { filter: brightness(1.4); }
+
+.map-controls {
+    margin-bottom: 0.3rem;
+    font-size: 0.8rem;
+}
+
+.map-zoom-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    padding: 0.15rem 0.5rem;
+    cursor: pointer;
+    font-size: 0.75rem;
+    border-radius: 2px;
+    margin-right: 0.4rem;
+}
+
+.map-zoom-btn:hover {
+    border-color: var(--gold-dim);
+    color: var(--gold);
+}
+
+/* Injury */
+.injury {
+    font-size: 0.8rem;
+    color: var(--red);
+    padding: 0.1rem 0;
+}
+
+/* ============================================================
+   SCROLLBAR STYLING
+   ============================================================ */
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--border-light); }
+
+/* ============================================================
+   LOADING DOTS ANIMATION
+   ============================================================ */
+
+@keyframes dots {
+    0%, 20% { content: ''; }
+    40% { content: '.'; }
+    60% { content: '..'; }
+    80%, 100% { content: '...'; }
+}
+
+.dots::after {
+    content: '';
+    animation: dots 1.5s steps(1) infinite;
+}
+
+/* ============================================================
+   SCENE IMAGES — generated by the Visualize button
+   ============================================================ */
+
+.scene-image {
+    margin: 0.8rem 0;
+    text-align: center;
+}
+
+.scene-image img {
+    max-width: 100%;
+    max-height: 400px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+/* Battle simulation HP bars */
+.battle-hp-snapshot {
+    margin: 0.3rem 0 0.6rem;
+    padding: 0.4rem 0.6rem;
+    background: rgba(15, 13, 11, 0.5);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    font-size: 0.8rem;
+}
+
+.battle-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-bottom: 0.2rem;
+}
+
+.battle-bar span:first-child { min-width: 120px; }
+.battle-count { min-width: 70px; text-align: right; font-family: monospace; font-size: 0.75rem; color: var(--text-dim); }
+.battle-bar .bar { flex: 1; }
+
+.visualize-btn {
+    border-color: var(--gold-dim) !important;
+    color: var(--gold) !important;
+}
+
+.visualize-btn:hover {
+    background: var(--gold-dim) !important;
+    color: var(--bg-dark) !important;
+}
