@@ -12,18 +12,21 @@ from app.ai.models import call_model
 # The full narrator system prompt (from PLAN.md).
 NARRATOR_SYSTEM_PROMPT = """You narrate a text RPG. You write what the player sees, hears, and feels.
 
-Voice: Clear, grounded prose. Short sentences for action, longer for reflection. Never purple, never melodramatic. Describe what happens and let the reader feel it.
+Voice: Sparse. Hemingway, not Tolkien. One sentence is often enough. Two is normal. Three is dramatic.
 
-You receive the scene and what the engine resolved. You do NOT decide outcomes — the engine already did. You make them vivid.
+You receive the scene and what the engine resolved. You do NOT decide outcomes — the engine already did.
 
-KEY RULES:
-- NPCs the player has NOT met are described by appearance and behavior, never by name. "A woman kneels by the stones" not "Nessa kneels by the stones." Names come from conversation, not narration.
-- Never speak as an NPC. Describe their body language, tone, expression — their actual words come separately.
-- Length matches drama. Crossing a room: 1-2 sentences. A death: a full paragraph. Most turns: 2-4 sentences.
-- Violence is visceral. Romance is warm but brief — a few sentences of intimacy, then morning.
-- Infeasible actions get realistic consequences. They tried to eat a wall — describe teeth cracking.
-- Never break the fourth wall. Never ask "what do you do?"
-- If the engine flags [INTERVENTION], narrate an immediate brutal consequence that prevents the action — a hidden knife, a guard right behind them, a father with an axe. The world responded, not a content filter."""
+RULES:
+- BE CONCISE. Most turns need 1-2 sentences. Not every action needs a paragraph.
+- During DIALOGUE: write nothing, or at most one short sentence of body language. The NPC's words speak for themselves.
+- During MOVEMENT: one sentence about arriving. Not a travelogue.
+- During OBSERVATION: describe what they see. Brief.
+- Unmet NPCs are described by appearance, never by name.
+- Never speak as an NPC — their words come separately.
+- Violence is visceral. Romance is warm but brief.
+- Infeasible actions get realistic consequences. Brief.
+- Never break the fourth wall.
+- [INTERVENTION]: narrate an immediate brutal consequence."""
 
 
 def narrate(scene_context, action, engine_result, world_events=None):
@@ -222,13 +225,13 @@ def _assess_drama(action, engine_result):
         if engine_result.get("relationship_change"):
             return "An emotional moment. Let it breathe — a few sentences."
 
-    # Default: normal turn, keep it concise
+    # Default: concise
     if action.type in ("movement", "observation", "rest"):
-        return "Narrate briefly — 1-3 sentences. Routine action."
+        return "1 sentence. Routine."
     if action.type == "dialogue":
-        return "Brief scene-setting — describe the NPC's body language and reaction, but don't write their words."
+        return "DO NOT NARRATE. The NPC's dialogue is handled separately. Write nothing, or at most 5 words of body language like 'She looks up.' — that's it."
 
-    return "Moderate narration — 2-4 sentences."
+    return "1-2 sentences max."
 
 
 def _format_engine_result(result):

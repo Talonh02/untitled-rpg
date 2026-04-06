@@ -213,6 +213,7 @@ def _deserialize_npc(d: dict) -> NPC:
         name=d["name"],
         age=d["age"],
         fate=d["fate"],
+        gender=d.get("gender", ""),
         stats=Stats.from_dict(d.get("stats", {})),
         occupation=d.get("occupation", ""),
         social_class=d.get("social_class", "working"),

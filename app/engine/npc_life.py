@@ -228,9 +228,18 @@ def generate_npc(occupation, name=None, age=None, location="") -> NPC:
     wealth = random.randint(w_min, w_max)
 
     # Name and age defaults
+    MALE_NAMES = ["Harn", "Colt", "Dort", "Peck", "Tam", "Keth", "Gost", "Fen",
+                  "Oric", "Brin", "Mosk", "Rutt", "Aldric", "Brennan", "Calder",
+                  "Dorian", "Edmund", "Gareth", "Silas", "Theron", "Varn"]
+    FEMALE_NAMES = ["Bessa", "Mira", "Lena", "Sorra", "Vella", "Nira", "Willa",
+                    "Dara", "Tessa", "Yara", "Ilsa", "Devva", "Adara", "Brenna",
+                    "Freya", "Lyra", "Sera", "Petra", "Katria", "Wren"]
     if not name:
-        from app.game.loop import GameLoop
-        name = random.choice(GameLoop.AMBIENT_NAMES)
+        is_female = random.random() < 0.5
+        name = random.choice(FEMALE_NAMES if is_female else MALE_NAMES)
+    else:
+        is_female = name.split()[0].lower() in {n.lower() for n in FEMALE_NAMES}
+    gender = "f" if is_female else "m"
     if not age:
         age = random.randint(18, 65)
 
@@ -248,7 +257,7 @@ def generate_npc(occupation, name=None, age=None, location="") -> NPC:
 
     npc = NPC(
         id=npc_id, name=name, age=age, fate=fate,
-        stats=stats, occupation=occupation,
+        stats=stats, occupation=occupation, gender=gender,
         social_class=social_class, wealth=wealth,
         temperament=temperament, power_tier=power_tier,
         weapon=weapon, armor=armor, location=location,

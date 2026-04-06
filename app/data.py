@@ -362,8 +362,9 @@ class NPC:
     name: str
     age: int
     fate: float                   # 0.0 to 1.0 — narrative importance
-    stats: Stats
-    occupation: str
+    gender: str = ""              # "m" or "f"
+    stats: Stats = field(default_factory=Stats)
+    occupation: str = ""
     social_class: str             # destitute, working, merchant, noble, royal
     wealth: int                   # 0-100
     faction: str = "none"
@@ -419,7 +420,7 @@ class NPC:
     def to_dict(self) -> dict:
         return {
             "id": self.id, "name": self.name, "age": self.age,
-            "fate": self.fate, "stats": self.stats.to_dict(),
+            "fate": self.fate, "gender": self.gender, "stats": self.stats.to_dict(),
             "occupation": self.occupation, "social_class": self.social_class,
             "wealth": self.wealth, "faction": self.faction,
             "faction_loyalty": self.faction_loyalty,

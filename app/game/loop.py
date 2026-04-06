@@ -1467,12 +1467,14 @@ class GameLoop:
         narration = self._narrate_result(action, engine_result, scene_context)
         response["narration"] = narration
 
-        # Pull out NPC dialogue if present
+        # Pull out NPC dialogue if present — suppress narration during conversation
         if engine_result.get("type") == "dialogue":
             speaker = engine_result.get("npc_name")
             text = engine_result.get("response", "")
             if speaker and text:
                 response["dialogue"] = {"speaker": speaker, "text": text}
+                # Don't show narration during dialogue — the NPC's words are enough
+                response["narration"] = ""
 
         # Pull out combat info
         if engine_result.get("type") == "combat":
@@ -1625,7 +1627,8 @@ class GameLoop:
             display_name = npc.name
         else:
             age = "young" if npc.age < 25 else "middle-aged" if npc.age < 50 else "older"
-            display_name = f"A {age} {npc.occupation}"
+            article = "An" if age == "older" else "A"
+            display_name = f"{article} {age} {npc.occupation}"
 
         # Physical build (what you can see looking at them)
         combined = (npc.stats.strength + npc.stats.toughness) / 2

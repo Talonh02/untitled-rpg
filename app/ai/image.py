@@ -92,6 +92,8 @@ def generate_npc_portrait(npc, game_state, save_dir="static/images") -> str:
     """
     os.makedirs(save_dir, exist_ok=True)
 
+    gender = "woman" if getattr(npc, 'gender', 'm') == 'f' else "man"
+
     # Build a character-focused prompt
     age = "young" if npc.age < 25 else "middle-aged" if npc.age < 50 else "older"
     build_val = (npc.stats.strength + npc.stats.toughness) / 2
@@ -111,7 +113,7 @@ def generate_npc_portrait(npc, game_state, save_dir="static/images") -> str:
     }.get(world.time_slot, "ambient light")
 
     prompt = (
-        f"Portrait of a {age} {build} {npc.occupation}, "
+        f"Portrait of a {age} {gender} {build} {npc.occupation}, "
         f"{mood} expression, {gaze}, dark fantasy character, "
         f"lit by {time_light}, detailed face close-up"
     )
